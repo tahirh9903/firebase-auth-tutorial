@@ -1,31 +1,45 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, DimensionValue } from 'react-native';
 
-const styles = StyleSheet.create({
+// Define the type for the styles
+interface Styles {
+  container: any;
+  logoContainer: any;
+  logoText: any;
+  tagline: any;
+  authContainer: any;
+  title: any;
+  input: any;
+  button: any;
+  buttonText: any;
+  toggleText: any;
+}
+
+const styles = StyleSheet.create<Styles>({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as 'center', // Explicitly type as 'center'
+    alignItems: 'center' as 'center', // Explicitly type as 'center'
     backgroundColor: '#ffffff', // White background
     padding: 20,
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: 'center' as 'center', // Explicitly type as 'center'
     marginBottom: 40,
   },
   logoText: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as 'bold', // Explicitly type as 'bold'
     color: '#2c3e50', // Dark blue-gray color
   },
   tagline: {
     fontSize: 16,
     color: '#7f8c8d', // Gray color
-    textAlign: 'center',
+    textAlign: 'center' as 'center', // Explicitly type as 'center'
     marginTop: 10,
   },
   authContainer: {
-    width: '100%',
+    width: '100%' as DimensionValue, // Explicitly type as DimensionValue
     maxWidth: 400,
     backgroundColor: '#ffffff',
     padding: 20,
@@ -38,9 +52,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as 'bold', // Explicitly type as 'bold'
     color: '#2c3e50',
-    textAlign: 'center',
+    textAlign: 'center' as 'center', // Explicitly type as 'center'
     marginBottom: 20,
   },
   input: {
@@ -55,19 +69,19 @@ const styles = StyleSheet.create({
   button: {
     height: 50,
     backgroundColor: '#3498db', // Blue color
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center' as 'center', // Explicitly type as 'center'
+    alignItems: 'center' as 'center', // Explicitly type as 'center'
     borderRadius: 5,
     marginBottom: 15,
   },
   buttonText: {
     color: '#ffffff', // White text
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as 'bold', // Explicitly type as 'bold'
   },
   toggleText: {
     color: '#3498db', // Blue color
-    textAlign: 'center',
+    textAlign: 'center' as 'center', // Explicitly type as 'center'
     fontSize: 14,
   },
 });
@@ -77,12 +91,32 @@ interface AuthScreenProps {
   setEmail: (email: string) => void;
   password: string;
   setPassword: (password: string) => void;
+  firstName: string;
+  setFirstName: (firstName: string) => void;
+  lastName: string;
+  setLastName: (lastName: string) => void;
+  phoneNumber: string;
+  setPhoneNumber: (phoneNumber: string) => void;
   isLogin: boolean;
   setIsLogin: (isLogin: boolean) => void;
   handleAuthentication: () => void;
 }
 
-const AuthScreen: React.FC<AuthScreenProps> = ({ email, setEmail, password, setPassword, isLogin, setIsLogin, handleAuthentication }) => {
+const AuthScreen: React.FC<AuthScreenProps> = ({
+  email,
+  setEmail,
+  password,
+  setPassword,
+  firstName,
+  setFirstName,
+  lastName,
+  setLastName,
+  phoneNumber,
+  setPhoneNumber,
+  isLogin,
+  setIsLogin,
+  handleAuthentication,
+}) => {
   return (
     <View style={styles.container}>
       {/* Logo and Tagline */}
@@ -96,13 +130,42 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ email, setEmail, password, setP
       <View style={styles.authContainer}>
         <Text style={styles.title}>{isLogin ? 'Sign In' : 'Sign Up'}</Text>
 
+        {!isLogin && (
+          <>
+            <TextInput
+              style={styles.input}
+              value={firstName}
+              onChangeText={setFirstName}
+              placeholder="First Name"
+              autoCapitalize="words"
+              placeholderTextColor="#7f8c8d"
+            />
+            <TextInput
+              style={styles.input}
+              value={lastName}
+              onChangeText={setLastName}
+              placeholder="Last Name"
+              autoCapitalize="words"
+              placeholderTextColor="#7f8c8d"
+            />
+            <TextInput
+              style={styles.input}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              placeholder="Phone Number"
+              keyboardType="phone-pad"
+              placeholderTextColor="#7f8c8d"
+            />
+          </>
+        )}
+
         <TextInput
           style={styles.input}
           value={email}
           onChangeText={setEmail}
           placeholder="Email"
           autoCapitalize="none"
-          placeholderTextColor="#7f8c8d" // Gray placeholder text
+          placeholderTextColor="#7f8c8d"
         />
         <TextInput
           style={styles.input}
@@ -110,7 +173,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ email, setEmail, password, setP
           onChangeText={setPassword}
           placeholder="Password"
           secureTextEntry
-          placeholderTextColor="#7f8c8d" // Gray placeholder text
+          placeholderTextColor="#7f8c8d"
         />
 
         <TouchableOpacity style={styles.button} onPress={handleAuthentication}>
