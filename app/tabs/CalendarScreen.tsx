@@ -2,8 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { getAuth } from 'firebase/auth';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  serverTimestamp, 
+  doc, 
+  updateDoc, 
+  deleteDoc,
+  getDoc,
+  getFirestore 
+} from 'firebase/firestore';
+import { app } from '../firebaseConfig';
 
 interface Event {
   id: string;
@@ -20,6 +32,12 @@ const CalendarScreen = () => {
   const [eventTitle, setEventTitle] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [selectedEvents, setSelectedEvents] = useState<Event[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+
+  // Get Firestore instance directly
+  const firestore = getFirestore(app);
 
   useEffect(() => {
     const auth = getAuth();
@@ -34,19 +52,28 @@ const CalendarScreen = () => {
 
   const fetchEvents = async () => {
     try {
-      const eventsRef = collection(db, 'events');
+      const eventsRef = collection(firestore, 'events');
       const q = query(eventsRef, where('userId', '==', currentUser?.uid));
       const snapshot = await getDocs(q);
 
       const fetchedEvents: { [date: string]: Event[] } = {};
       snapshot.forEach((doc) => {
-        const event = doc.data() as Event;
+        const eventData = doc.data();
+        const event: Event = {
+          id: doc.id,
+          title: eventData.title,
+          description: eventData.description,
+          date: eventData.date,
+          userId: eventData.userId
+        };
+        
         if (!fetchedEvents[event.date]) {
           fetchedEvents[event.date] = [];
         }
-        fetchedEvents[event.date].push({ ...event, id: doc.id });
+        fetchedEvents[event.date].push(event);
       });
 
+      console.log('Fetched events:', fetchedEvents);
       setEvents(fetchedEvents);
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -56,7 +83,102 @@ const CalendarScreen = () => {
 
   const handleDayPress = (day: { dateString: string }) => {
     setSelectedDate(day.dateString);
-    setModalVisible(true);
+    const dayEvents = events[day.dateString] || [];
+    setSelectedEvents(dayEvents);
+    
+    if (dayEvents.length > 0) {
+      // If there are events, show them in a list
+      setModalVisible(true);
+      setIsEditMode(false);
+      setEditingEvent(null);
+      setEventTitle('');
+      setEventDescription('');
+    } else {
+      // If no events, open the add event modal
+      setModalVisible(true);
+      setIsEditMode(false);
+      setEditingEvent(null);
+      setEventTitle('');
+      setEventDescription('');
+    }
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setIsEditMode(true);
+    setEditingEvent(event);
+    setEventTitle(event.title);
+    setEventDescription(event.description);
+  };
+
+  const handleUpdateEvent = async () => {
+    if (!editingEvent || !eventTitle.trim()) {
+      Alert.alert('Error', 'Please enter an event title');
+      return;
+    }
+
+    try {
+      const eventRef = doc(firestore, 'events', editingEvent.id);
+      await updateDoc(eventRef, {
+        title: eventTitle,
+        description: eventDescription,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Reset form and close modal
+      setEventTitle('');
+      setEventDescription('');
+      setModalVisible(false);
+      setIsEditMode(false);
+      setEditingEvent(null);
+
+      // Refresh events
+      fetchEvents();
+
+      Alert.alert('Success', 'Event updated successfully');
+    } catch (error) {
+      console.error('Error updating event:', error);
+      Alert.alert('Error', 'Failed to update event');
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: string) => {
+    Alert.alert(
+      'Confirm Delete',
+      'Are you sure you want to delete this event?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Delete from Firestore
+              const eventRef = doc(firestore, 'events', eventId);
+              await deleteDoc(eventRef);
+
+              // Update local state
+              const updatedEvents = { ...events };
+              Object.keys(updatedEvents).forEach(date => {
+                updatedEvents[date] = updatedEvents[date].filter(event => event.id !== eventId);
+                if (updatedEvents[date].length === 0) {
+                  delete updatedEvents[date];
+                }
+              });
+              setEvents(updatedEvents);
+              
+              // Close modal and clear selection
+              setModalVisible(false);
+              setSelectedEvents(prev => prev.filter(event => event.id !== eventId));
+              
+              Alert.alert('Success', 'Event deleted successfully');
+            } catch (error: any) {
+              console.error('Delete error:', error);
+              Alert.alert('Error', `Failed to delete event: ${error.message}`);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleAddEvent = async () => {
@@ -74,7 +196,7 @@ const CalendarScreen = () => {
         createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, 'events'), eventData);
+      await addDoc(collection(firestore, 'events'), eventData);
       
       // Reset form and close modal
       setEventTitle('');
@@ -118,39 +240,91 @@ const CalendarScreen = () => {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Event for {selectedDate}</Text>
-            
-            <TextInput
-              style={styles.input}
-              placeholder="Event Title"
-              value={eventTitle}
-              onChangeText={setEventTitle}
-            />
-            
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Event Description"
-              value={eventDescription}
-              onChangeText={setEventDescription}
-              multiline
-              numberOfLines={4}
-            />
+            {!isEditMode && selectedEvents.length > 0 ? (
+              // Show list of events
+              <>
+                <Text style={styles.modalTitle}>Events for {selectedDate}</Text>
+                {selectedEvents.map((event) => (
+                  <View key={event.id} style={styles.eventItem}>
+                    <View style={styles.eventHeader}>
+                      <Text style={styles.eventTitle}>{event.title}</Text>
+                      <View style={styles.eventActions}>
+                        <TouchableOpacity
+                          onPress={() => handleEditEvent(event)}
+                          style={styles.actionButton}
+                        >
+                          <Text style={styles.actionButtonText}>Edit</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteEvent(event.id)}
+                          style={[styles.actionButton, styles.deleteButton]}
+                        >
+                          <Text style={styles.actionButtonText}>Delete</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    <Text style={styles.eventDescription}>{event.description}</Text>
+                  </View>
+                ))}
+                <TouchableOpacity
+                  style={[styles.button, styles.addButton]}
+                  onPress={() => {
+                    setIsEditMode(false);
+                    setEditingEvent(null);
+                    setEventTitle('');
+                    setEventDescription('');
+                    setSelectedEvents([]);
+                  }}
+                >
+                  <Text style={styles.buttonText}>Add New Event</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              // Show add/edit form
+              <>
+                <Text style={styles.modalTitle}>
+                  {isEditMode ? 'Edit Event' : `Add Event for ${selectedDate}`}
+                </Text>
+                
+                <TextInput
+                  style={styles.input}
+                  placeholder="Event Title"
+                  value={eventTitle}
+                  onChangeText={setEventTitle}
+                />
+                
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Event Description"
+                  value={eventDescription}
+                  onChangeText={setEventDescription}
+                  multiline
+                  numberOfLines={4}
+                />
 
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.button, styles.addButton]}
-                onPress={handleAddEvent}
-              >
-                <Text style={styles.buttonText}>Add Event</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    style={[styles.button, styles.cancelButton]}
+                    onPress={() => {
+                      setModalVisible(false);
+                      setIsEditMode(false);
+                      setEditingEvent(null);
+                    }}
+                  >
+                    <Text style={styles.buttonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.button, styles.addButton]}
+                    onPress={isEditMode ? handleUpdateEvent : handleAddEvent}
+                  >
+                    <Text style={styles.buttonText}>
+                      {isEditMode ? 'Update Event' : 'Add Event'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -212,6 +386,46 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  eventItem: {
+    width: '100%',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+  },
+  eventHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  eventDescription: {
+    fontSize: 14,
+    color: '#666',
+  },
+  eventActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    backgroundColor: '#50cebb',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  deleteButton: {
+    backgroundColor: '#ff6b6b',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 12,
     fontWeight: 'bold',
   },
 });
