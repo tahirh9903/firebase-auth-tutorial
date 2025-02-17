@@ -142,43 +142,41 @@ const CalendarScreen = () => {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    Alert.alert(
-      'Confirm Delete',
-      'Are you sure you want to delete this event?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Delete from Firestore
-              const eventRef = doc(firestore, 'events', eventId);
-              await deleteDoc(eventRef);
+    if (!eventId) {
+      console.error('No event ID provided');
+      return;
+    }
 
-              // Update local state
-              const updatedEvents = { ...events };
-              Object.keys(updatedEvents).forEach(date => {
-                updatedEvents[date] = updatedEvents[date].filter(event => event.id !== eventId);
-                if (updatedEvents[date].length === 0) {
-                  delete updatedEvents[date];
-                }
-              });
-              setEvents(updatedEvents);
-              
-              // Close modal and clear selection
-              setModalVisible(false);
-              setSelectedEvents(prev => prev.filter(event => event.id !== eventId));
-              
-              Alert.alert('Success', 'Event deleted successfully');
-            } catch (error: any) {
-              console.error('Delete error:', error);
-              Alert.alert('Error', `Failed to delete event: ${error.message}`);
-            }
-          },
-        },
-      ]
-    );
+    console.log('Attempting to delete event with ID:', eventId);
+    
+    try {
+      // Delete from Firestore
+      const eventRef = doc(firestore, 'events', eventId);
+      await deleteDoc(eventRef);
+      console.log('Successfully deleted from Firestore');
+
+      // Update local state immediately
+      setEvents(prevEvents => {
+        const newEvents = { ...prevEvents };
+        // Remove the event from all dates
+        Object.keys(newEvents).forEach(date => {
+          newEvents[date] = newEvents[date].filter(event => event.id !== eventId);
+          // Remove date key if no events remain
+          if (newEvents[date].length === 0) {
+            delete newEvents[date];
+          }
+        });
+        return newEvents;
+      });
+
+      setSelectedEvents(prev => prev.filter(event => event.id !== eventId));
+      setModalVisible(false);
+      
+      Alert.alert('Success', 'Event deleted successfully');
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      Alert.alert('Error', 'Failed to delete event. Please try again.');
+    }
   };
 
   const handleAddEvent = async () => {
@@ -256,7 +254,10 @@ const CalendarScreen = () => {
                           <Text style={styles.actionButtonText}>Edit</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          onPress={() => handleDeleteEvent(event.id)}
+                          onPress={() => {
+                            console.log('Delete button pressed for event:', event.id);
+                            handleDeleteEvent(event.id);
+                          }}
                           style={[styles.actionButton, styles.deleteButton]}
                         >
                           <Text style={styles.actionButtonText}>Delete</Text>

@@ -30,23 +30,24 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
           let iconName: 'home' | 'home-outline' | 'person' | 'person-outline' | 'chatbubbles' | 'chatbubbles-outline' | 'calendar-sharp' | 'calendar-outline';
 
           if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline'; // Use appropriate icons
+            iconName = focused ? 'home-outline' : 'home-outline'; // Use appropriate icons
           } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline'; // Use appropriate icons
+            iconName = focused ? 'person-outline' : 'person-outline'; // Use appropriate icons
           } else if (route.name === 'Chat') {
-            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline'; // Use appropriate icons
+            iconName = focused ? 'chatbubbles-outline' : 'chatbubbles-outline'; // Use appropriate icons
           }
           else if (route.name === 'Calendar') {
-            iconName = focused ? 'calendar-sharp' : 'calendar-outline'; // Use appropriate icons
+            iconName = focused ? 'calendar-outline' : 'calendar-outline'; // Use appropriate icons
           }else {
             iconName = 'home'; // Default icon
           }
 
           // Return the icon component
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={size} color={focused ? '#000000' : '#FFFFFF'} />;
         },
-        tabBarActiveTintColor: '#3498db', // Active tab color
-        tabBarInactiveTintColor: '#7f8c8d', // Inactive tab color
+        tabBarShowLabel: false, // This hides the labels
+        tabBarActiveTintColor: '#000000', // Black text for active tab
+        tabBarInactiveTintColor: '#FFFFFF', // White text for inactive tab
         tabBarStyle: {
           backgroundColor: '#335FF6', // Background color of the tab bar
           borderTopWidth: 0,
