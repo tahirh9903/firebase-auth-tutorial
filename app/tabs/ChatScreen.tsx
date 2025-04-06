@@ -9,7 +9,7 @@ import {
   Alert,
   Modal,
 } from 'react-native';
-import { getAuth } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import {
   collection,
   query,
@@ -42,6 +42,26 @@ interface ConversationState {
   data: Conversation[];
 }
 
+// Add this censoring utility at the top of the file, after imports
+const censorProfanity = (text: string): string => {
+  // Add common profanity words to this array
+  const profanityList = [
+    'fuck', 'shit', 'damn', 'ass', 'bitch', 'crap', 'piss',
+    // Add variations
+    'fucking', 'fucked', 'shitting', 'damned', 'asshole', 'bitches'
+  ];
+
+  let censoredText = text;
+  profanityList.forEach(word => {
+    // Create a regex that matches the word case-insensitively
+    const regex = new RegExp(word, 'gi');
+    // Replace with the same number of # characters
+    censoredText = censoredText.replace(regex, '#'.repeat(word.length));
+  });
+
+  return censoredText;
+};
+
 const ChatScreen = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationsState, setConversationsState] = useState<ConversationState>({
@@ -51,18 +71,30 @@ const ChatScreen = () => {
   const [newMessage, setNewMessage] = useState('');
   const [receiverEmail, setReceiverEmail] = useState('');
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
-  const auth = getAuth();
-  const currentUser = auth.currentUser;
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // Fetch conversations
   useEffect(() => {
-    if (!currentUser?.email) {
-      setConversationsState({ isLoading: false, data: [] });
-      return;
-    }
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user);
+        // Don't reset conversations here
+      } else {
+        setCurrentUser(null);
+        setConversationsState({ isLoading: false, data: [] });
+      }
+    });
 
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser?.email) return;
+    
+    // Set loading state
     setConversationsState(prev => ({ ...prev, isLoading: true }));
 
+    // Create a real-time listener for messages
     const messagesRef = collection(db, 'messages');
     const q = query(
       messagesRef,
@@ -79,8 +111,14 @@ const ChatScreen = () => {
 
           querySnapshot.forEach((doc) => {
             const data = doc.data();
-            if (!data.senderEmail || !data.receiverEmail) return;
+            
+            // Validate required fields
+            if (!data.senderEmail || !data.receiverEmail || !data.participants) {
+              console.warn('Skipping invalid message document:', doc.id);
+              return;
+            }
 
+            // Add to messages list
             messageList.push({
               id: doc.id,
               text: data.text,
@@ -89,14 +127,14 @@ const ChatScreen = () => {
               timestamp: data.timestamp,
             });
 
-            const otherEmail = data.senderEmail === currentUser.email 
-              ? data.receiverEmail 
-              : data.senderEmail;
+            // Update conversation map
+            const otherParticipant = data.participants.find(
+              (email: string) => email !== currentUser.email
+            );
 
-            if (!conversationMap.has(otherEmail) || 
-                (data.timestamp && conversationMap.get(otherEmail)?.timestamp?.seconds < data.timestamp.seconds)) {
-              conversationMap.set(otherEmail, {
-                email: otherEmail,
+            if (otherParticipant && !conversationMap.has(otherParticipant)) {
+              conversationMap.set(otherParticipant, {
+                email: otherParticipant,
                 lastMessage: data.text,
                 timestamp: data.timestamp || new Date(),
                 unread: data.senderEmail !== currentUser.email,
@@ -104,13 +142,15 @@ const ChatScreen = () => {
             }
           });
 
-          setMessages(messageList.sort((a, b) => 
-            (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)
-          ));
+          // Update messages state
+          setMessages(messageList);
 
+          // Update conversations state
           setConversationsState({
             isLoading: false,
-            data: Array.from(conversationMap.values())
+            data: Array.from(conversationMap.values()).sort((a, b) => 
+              (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)
+            )
           });
         } catch (error) {
           console.error('Error processing messages:', error);
@@ -118,13 +158,14 @@ const ChatScreen = () => {
         }
       },
       (error) => {
-        console.error('Error fetching messages:', error);
+        console.error('Error in messages snapshot:', error);
         setConversationsState(prev => ({ ...prev, isLoading: false }));
       }
     );
 
+    // Cleanup listener on unmount or when currentUser changes
     return () => unsubscribe();
-  }, [currentUser?.email]);
+  }, [currentUser?.email]); // Only re-run when email changes
 
   const handleSendMessage = async () => {
     if (!currentUser || !newMessage.trim() || !(receiverEmail || selectedChat)) {
@@ -133,35 +174,37 @@ const ChatScreen = () => {
     }
 
     const targetEmail = selectedChat || receiverEmail;
+    // Censor the message before sending
+    const censoredMessage = censorProfanity(newMessage.trim());
 
     try {
-      // Create message data
+      // Create message data with censored text
       const messageData = {
-        text: newMessage,
-        senderEmail: currentUser.email,
+        text: censoredMessage,
+        senderEmail: currentUser?.email || '',
         receiverEmail: targetEmail,
         timestamp: serverTimestamp(),
-        participants: [currentUser.email, targetEmail].sort(),
+        participants: [currentUser?.email || '', targetEmail].sort(),
       };
 
       // Add message to Firestore
       const docRef = await addDoc(collection(db, 'messages'), messageData);
 
-      // Add message to local state immediately
+      // Add censored message to local state immediately
       const newMessageObj: Message = {
         id: docRef.id,
-        text: newMessage,
-        senderEmail: currentUser.email || '', // Add null check with empty string fallback
+        text: censoredMessage,
+        senderEmail: currentUser.email || '',
         receiverEmail: targetEmail,
-        timestamp: new Date(), // Use current date for immediate display
+        timestamp: new Date(),
       };
 
       setMessages(prevMessages => [newMessageObj, ...prevMessages]);
 
-      // Update conversations immediately
+      // Update conversations with censored message
       const newConversation: Conversation = {
         email: targetEmail,
-        lastMessage: newMessage,
+        lastMessage: censoredMessage,
         timestamp: new Date(),
         unread: false
       };
