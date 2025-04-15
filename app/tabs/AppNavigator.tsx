@@ -32,43 +32,56 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
           let iconName: 'home' | 'home-outline' | 'person' | 'person-outline' | 'chatbubbles' | 'chatbubbles-outline' | 'calendar-sharp' | 'calendar-outline' | 'medical' | 'medical-outline';
 
           if (route.name === 'Home') {
-            iconName = focused ? 'home-outline' : 'home-outline'; // Use appropriate icons
+            iconName = focused ? 'home-outline' : 'home-outline';
           } else if (route.name === 'Profile') {
-            iconName = focused ? 'person-outline' : 'person-outline'; // Use appropriate icons
+            iconName = focused ? 'person-outline' : 'person-outline';
           } else if (route.name === 'Chat') {
-            iconName = focused ? 'chatbubbles-outline' : 'chatbubbles-outline'; // Use appropriate icons
+            iconName = focused ? 'chatbubbles-outline' : 'chatbubbles-outline';
           } else if (route.name === 'Calendar') {
-            iconName = focused ? 'calendar-outline' : 'calendar-outline'; // Use appropriate icons
+            iconName = focused ? 'calendar-outline' : 'calendar-outline';
           } else if (route.name === 'Doctors') {
-            iconName = focused ? 'medical-outline' : 'medical-outline'; // Use appropriate icons
+            iconName = focused ? 'medical-outline' : 'medical-outline';
           } else {
-            iconName = 'home'; // Default icon
+            iconName = 'home';
           }
 
-          // Return the icon component
-          return <Ionicons name={iconName} size={size} color={focused ? '#000000' : '#FFFFFF'} />;
+          return <Ionicons name={iconName} size={24} color={focused ? '#000000' : '#FFFFFF'} />;
         },
-        tabBarShowLabel: false, // This hides the labels
-        tabBarActiveTintColor: '#000000', // Black text for active tab
-        tabBarInactiveTintColor: '#FFFFFF', // White text for inactive tab
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: '#000000',
+        tabBarInactiveTintColor: '#FFFFFF',
         tabBarStyle: {
-          backgroundColor: '#335FF6', // Background color of the tab bar
+          backgroundColor: '#335FF6',
           borderTopWidth: 0,
-          borderTopColor: '#bdc3c7', // Border color
           borderRadius: 50,
-          paddingBottom: 5,
-          paddingTop: 5,
-          marginBottom: 20,
+          height: 60,
+          position: 'absolute',
+          bottom: 20,
+          left: 20,
+          right: 20,
+          elevation: 5,
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 2,
+          },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+        },
+        tabBarItemStyle: {
+          height: 60,
+          padding: 10,
         },
       })}
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
         options={{
           tabBarLabel: 'Home', // Label for the tab
         }}
-      />
+      >
+        {() => <HomeScreen user={user} />}
+      </Tab.Screen>
       <Tab.Screen
         name="Doctors"
         component={DoctorsScreen}

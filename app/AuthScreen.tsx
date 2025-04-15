@@ -1,88 +1,138 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, DimensionValue } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import SignUpScreen from './SignUpScreen';
 
 // Define the type for the styles
 interface Styles {
   container: any;
-  logoContainer: any;
-  logoText: any;
-  tagline: any;
-  authContainer: any;
+  backButton: any;
+  mainContent: any;
   title: any;
+  subtitle: any;
+  inputLabel: any;
   input: any;
+  inputContainer: any;
+  showPasswordButton: any;
+  forgetPassword: any;
   button: any;
   buttonText: any;
-  toggleText: any;
+  socialContainer: any;
+  socialText: any;
+  socialButtonsContainer: any;
+  socialButton: any;
+  signUpContainer: any;
+  signUpText: any;
+  signUpLink: any;
+  orText: any;
 }
 
 const styles = StyleSheet.create<Styles>({
   container: {
     flex: 1,
-    justifyContent: 'center' as 'center', // Explicitly type as 'center'
-    alignItems: 'center' as 'center', // Explicitly type as 'center'
-    backgroundColor: '#ffffff', // White background
-    padding: 20,
-  },
-  logoContainer: {
-    alignItems: 'center' as 'center', // Explicitly type as 'center'
-    marginBottom: 40,
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: 'bold' as 'bold', // Explicitly type as 'bold'
-    color: '#2c3e50', // Dark blue-gray color
-  },
-  tagline: {
-    fontSize: 16,
-    color: '#7f8c8d', // Gray color
-    textAlign: 'center' as 'center', // Explicitly type as 'center'
-    marginTop: 10,
-  },
-  authContainer: {
-    width: '100%' as DimensionValue, // Explicitly type as DimensionValue
-    maxWidth: 400,
     backgroundColor: '#ffffff',
     padding: 20,
-    borderRadius: 10,
-    elevation: 3, // Shadow for Android
-    shadowColor: '#000', // Shadow for iOS
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  },
+  backButton: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  mainContent: {
+    flex: 1,
+    paddingTop: 20,
   },
   title: {
-    fontSize: 22,
-    fontWeight: 'bold' as 'bold', // Explicitly type as 'bold'
-    color: '#2c3e50',
-    textAlign: 'center' as 'center', // Explicitly type as 'center'
-    marginBottom: 20,
+    fontSize: 24,
+    fontWeight: 'bold' as const,
+    color: '#000000',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 32,
+  },
+  inputLabel: {
+    fontSize: 16,
+    color: '#000000',
+    marginBottom: 8,
+  },
+  inputContainer: {
+    marginBottom: 16,
   },
   input: {
     height: 50,
-    borderColor: '#bdc3c7', // Light gray border
-    borderWidth: 1,
-    marginBottom: 15,
-    paddingHorizontal: 10,
-    borderRadius: 5,
-    backgroundColor: '#f5f6fa', // Light gray background
+    backgroundColor: '#F5F6FA',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
+  showPasswordButton: {
+    position: 'absolute' as const,
+    right: 16,
+    top: 12,
+  },
+  forgetPassword: {
+    alignSelf: 'flex-end' as const,
+    color: '#0066FF',
+    fontSize: 14,
+    marginBottom: 24,
   },
   button: {
     height: 50,
-    backgroundColor: '#3498db', // Blue color
-    justifyContent: 'center' as 'center', // Explicitly type as 'center'
-    alignItems: 'center' as 'center', // Explicitly type as 'center'
-    borderRadius: 5,
-    marginBottom: 15,
+    backgroundColor: '#0066FF',
+    borderRadius: 25,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginBottom: 24,
   },
   buttonText: {
-    color: '#ffffff', // White text
+    color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold' as 'bold', // Explicitly type as 'bold'
+    fontWeight: '600' as const,
   },
-  toggleText: {
-    color: '#3498db', // Blue color
-    textAlign: 'center' as 'center', // Explicitly type as 'center'
+  socialContainer: {
+    alignItems: 'center' as const,
+  },
+  socialText: {
+    color: '#666666',
     fontSize: 14,
+    marginBottom: 16,
+  },
+  socialButtonsContainer: {
+    flexDirection: 'row' as const,
+    justifyContent: 'center' as const,
+    gap: 16,
+  },
+  socialButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F5F6FA',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  signUpContainer: {
+    flexDirection: 'row' as const,
+    justifyContent: 'center' as const,
+    marginTop: 24,
+  },
+  signUpText: {
+    color: '#666666',
+    fontSize: 14,
+  },
+  signUpLink: {
+    color: '#0066FF',
+    fontSize: 14,
+    marginLeft: 4,
+  },
+  orText: {
+    color: '#666666',
+    fontSize: 14,
+    textAlign: 'center' as const,
+    marginBottom: 16,
   },
 });
 
@@ -91,14 +141,6 @@ interface AuthScreenProps {
   setEmail: (email: string) => void;
   password: string;
   setPassword: (password: string) => void;
-  firstName: string;
-  setFirstName: (firstName: string) => void;
-  lastName: string;
-  setLastName: (lastName: string) => void;
-  phoneNumber: string;
-  setPhoneNumber: (phoneNumber: string) => void;
-  isLogin: boolean;
-  setIsLogin: (isLogin: boolean) => void;
   handleAuthentication: () => void;
 }
 
@@ -107,84 +149,102 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
   setEmail,
   password,
   setPassword,
-  firstName,
-  setFirstName,
-  lastName,
-  setLastName,
-  phoneNumber,
-  setPhoneNumber,
-  isLogin,
-  setIsLogin,
   handleAuthentication,
 }) => {
+  const [isSignUp, setIsSignUp] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
+
+  const handleSignUp = (data: {
+    fullName: string;
+    password: string;
+    email: string;
+    mobileNumber: string;
+    dateOfBirth: string;
+  }) => {
+    // Handle sign up logic here
+    console.log('Sign up data:', data);
+  };
+
+  if (isSignUp) {
+    return (
+      <SignUpScreen
+        onBack={() => setIsSignUp(false)}
+        onSignUp={handleSignUp}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Logo and Tagline */}
-      <View style={styles.logoContainer}>
-        <Text style={styles.logoText}>MediConnect</Text>
-        <Text style={styles.tagline}>Health Authenticator</Text>
-        <Text style={styles.tagline}>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore</Text>
-      </View>
+      <TouchableOpacity style={styles.backButton}>
+        <Icon name="arrow-back" size={24} color="#000000" />
+      </TouchableOpacity>
 
-      {/* Auth Form */}
-      <View style={styles.authContainer}>
-        <Text style={styles.title}>{isLogin ? 'Sign In' : 'Sign Up'}</Text>
+      <View style={styles.mainContent}>
+        <Text style={styles.title}>Welcome</Text>
+        <Text style={styles.subtitle}>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</Text>
 
-        {!isLogin && (
-          <>
-            <TextInput
-              style={styles.input}
-              value={firstName}
-              onChangeText={setFirstName}
-              placeholder="First Name"
-              autoCapitalize="words"
-              placeholderTextColor="#7f8c8d"
-            />
-            <TextInput
-              style={styles.input}
-              value={lastName}
-              onChangeText={setLastName}
-              placeholder="Last Name"
-              autoCapitalize="words"
-              placeholderTextColor="#7f8c8d"
-            />
-            <TextInput
-              style={styles.input}
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              placeholder="Phone Number"
-              keyboardType="phone-pad"
-              placeholderTextColor="#7f8c8d"
-            />
-          </>
-        )}
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Email or Mobile Number</Text>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="example@example.com"
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+        </View>
 
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Email"
-          autoCapitalize="none"
-          placeholderTextColor="#7f8c8d"
-        />
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Password"
-          secureTextEntry
-          placeholderTextColor="#7f8c8d"
-        />
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Password</Text>
+          <TextInput
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="***************"
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity 
+            style={styles.showPasswordButton}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Icon 
+              name={showPassword ? "visibility-off" : "visibility"} 
+              size={24} 
+              color="#666666" 
+            />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity>
+          <Text style={styles.forgetPassword}>Forget Password</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.button} onPress={handleAuthentication}>
-          <Text style={styles.buttonText}>{isLogin ? 'Sign In' : 'Sign Up'}</Text>
+          <Text style={styles.buttonText}>Log In</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
-          <Text style={styles.toggleText}>
-            {isLogin ? 'Need an account? Sign Up' : 'Already have an account? Sign In'}
-          </Text>
-        </TouchableOpacity>
+        <Text style={styles.orText}>or sign up with</Text>
+
+        <View style={styles.socialButtonsContainer}>
+          <TouchableOpacity style={styles.socialButton}>
+            <FontAwesome name="google" size={20} color="#DB4437" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.socialButton}>
+            <FontAwesome name="facebook" size={20} color="#4267B2" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.socialButton}>
+            <MaterialCommunityIcons name="fingerprint" size={20} color="#000000" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.signUpContainer}>
+          <Text style={styles.signUpText}>Don't have an account?</Text>
+          <TouchableOpacity onPress={() => setIsSignUp(true)}>
+            <Text style={styles.signUpLink}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
