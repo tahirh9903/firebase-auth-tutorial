@@ -1,78 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { User } from '@firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db, storage } from '../firebaseConfig';
-
-const styles = StyleSheet.create({
-  authContainer: {
-    width: '80%',
-    maxWidth: 400,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    elevation: 3,
-  },
-  title: {
-    fontSize: 24,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  emailText: {
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  userInfoText: {
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  profileImage: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    marginBottom: 20,
-  },
-  uploadButton: {
-    backgroundColor: '#50cebb',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 20,
-  },
-  uploadButtonText: {
-    color: 'white',
-    textAlign: 'center',
-  },
-});
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import EditProfileScreen from '../screens/EditProfileScreen';
 
 interface ProfileScreenProps {
   user: User | null;
-  firstName: string;
-  lastName: string;
-  phoneNumber: string;
   handleAuthentication: () => void;
+}
+
+interface MenuItem {
+  icon: JSX.Element;
+  title: string;
+  onPress: () => void;
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({
   user,
-  firstName,
-  lastName,
-  phoneNumber,
   handleAuthentication,
 }) => {
   const [uploading, setUploading] = useState(false);
   const [profilePhotoURL, setProfilePhotoURL] = useState<string | null>(null);
+  const [userData, setUserData] = useState<any>(null);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists() && userDoc.data().photoURL) {
+          if (userDoc.exists()) {
+            setUserData(userDoc.data());
             setProfilePhotoURL(userDoc.data().photoURL);
+            setFirstName(userDoc.data().firstName || '');
+            setLastName(userDoc.data().lastName || '');
+            setPhoneNumber(userDoc.data().phoneNumber || '');
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
@@ -83,6 +54,33 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     fetchUserProfile();
   }, [user]);
 
+  const handleUpdateProfile = async () => {
+    if (!user) return;
+
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        fullName: `${firstName} ${lastName}`,
+        phoneNumber: phoneNumber,
+        photoURL: profilePhotoURL,
+        updatedAt: serverTimestamp()
+      });
+
+      // Update local state
+      setUserData({
+        ...userData,
+        fullName: `${firstName} ${lastName}`,
+        phoneNumber: phoneNumber,
+        photoURL: profilePhotoURL
+      });
+
+      Alert.alert('Success', 'Profile updated successfully');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      Alert.alert('Error', 'Failed to update profile');
+    }
+  };
+
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -92,80 +90,221 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
         quality: 1,
       });
 
-      if (!result.canceled && result.assets[0].uri) {
-        await uploadImage(result.assets[0].uri);
+      if (!result.canceled) {
+        setUploading(true);
+        const uri = result.assets[0].uri;
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        const filename = uri.substring(uri.lastIndexOf('/') + 1);
+        const storageRef = ref(storage, `profile_images/${user?.uid}/${filename}`);
+        
+        await uploadBytes(storageRef, blob);
+        const downloadURL = await getDownloadURL(storageRef);
+        
+        setProfilePhotoURL(downloadURL);
+        await handleUpdateProfile();
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      alert('Error selecting image');
-    }
-  };
-
-  const uploadImage = async (uri: string) => {
-    if (!user) return;
-
-    setUploading(true);
-    try {
-      console.log('Starting upload process...');
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      console.log('Blob created');
-      
-      const storageRef = ref(storage, `profilePictures/${user.uid}`);
-      console.log('Storage reference created:', storageRef);
-      
-      console.log('Attempting to upload...');
-      await uploadBytes(storageRef, blob);
-      console.log('Upload successful');
-      
-      const downloadURL = await getDownloadURL(storageRef);
-      console.log('Download URL obtained:', downloadURL);
-      
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        photoURL: downloadURL,
-      });
-      console.log('Firestore updated');
-
-      alert('Profile picture updated successfully!');
-    } catch (error: any) {
-      console.error('Detailed error:', error.code, error.message);
-      alert(`Error uploading image: ${error.message}`);
+      Alert.alert('Error', 'Failed to pick image');
     } finally {
       setUploading(false);
     }
   };
 
+  if (showEditProfile && user) {
+    return (
+      <EditProfileScreen
+        userId={user.uid}
+        onBack={() => setShowEditProfile(false)}
+      />
+    );
+  }
+
+  const menuItems: MenuItem[] = [
+    {
+      icon: <Icon name="person-outline" size={24} color="#000000" />,
+      title: 'Profile',
+      onPress: () => setShowEditProfile(true),
+    },
+    {
+      icon: <Icon name="favorite-border" size={24} color="#000000" />,
+      title: 'Favorite',
+      onPress: () => {},
+    },
+    {
+      icon: <Icon name="payment" size={24} color="#000000" />,
+      title: 'Payment Method',
+      onPress: () => {},
+    },
+    {
+      icon: <MaterialCommunityIcons name="shield-lock-outline" size={24} color="#000000" />,
+      title: 'Privacy Policy',
+      onPress: () => {},
+    },
+    {
+      icon: <Icon name="settings" size={24} color="#000000" />,
+      title: 'Settings',
+      onPress: () => {},
+    },
+    {
+      icon: <Icon name="help-outline" size={24} color="#000000" />,
+      title: 'Help',
+      onPress: () => {},
+    },
+    {
+      icon: <MaterialCommunityIcons name="logout" size={24} color="#000000" />,
+      title: 'Logout',
+      onPress: handleAuthentication,
+    },
+  ];
+
   if (!user) {
     return (
-      <View style={styles.authContainer}>
+      <View style={styles.container}>
         <Text style={styles.title}>No User Found</Text>
-        <Button title="Go to Login" onPress={handleAuthentication} color="#e74c3c" />
+        <TouchableOpacity style={styles.button} onPress={handleAuthentication}>
+          <Text style={styles.buttonText}>Go to Login</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={styles.authContainer}>
-      <TouchableOpacity onPress={pickImage} disabled={uploading}>
-        <Image
-          source={profilePhotoURL ? { uri: profilePhotoURL } : { uri: 'https://via.placeholder.com/150' }}
-          style={styles.profileImage}
-        />
-        <View style={styles.uploadButton}>
-          <Text style={styles.uploadButtonText}>
-            {uploading ? 'Uploading...' : 'Change Profile Picture'}
-          </Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton}>
+          <Icon name="arrow-back" size={24} color="#000000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Profile</Text>
+      </View>
+
+      <ScrollView style={styles.content}>
+        <View style={styles.profileSection}>
+          <TouchableOpacity style={styles.profileImageContainer} onPress={pickImage} disabled={uploading}>
+            <Image
+              source={profilePhotoURL ? { uri: profilePhotoURL } : { uri: 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
+              style={styles.profileImage}
+            />
+            <View style={styles.editIconContainer}>
+              <Icon name="edit" size={20} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.userName}>{userData?.fullName || 'John Doe'}</Text>
         </View>
-      </TouchableOpacity>
-      
-      <Text style={styles.title}>Welcome</Text>
-      <Text style={styles.userInfoText}>Name: {firstName} {lastName}</Text>
-      <Text style={styles.emailText}>Email: {user.email}</Text>
-      <Text style={styles.userInfoText}>Phone Number: {phoneNumber}</Text>
-      <Button title="Logout" onPress={handleAuthentication} color="#e74c3c" />
+
+        <View style={styles.menuContainer}>
+          {menuItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.menuItem}
+              onPress={item.onPress}
+            >
+              <View style={styles.menuIconContainer}>
+                {item.icon}
+              </View>
+              <Text style={styles.menuText}>{item.title}</Text>
+              <Icon name="chevron-right" size={24} color="#CCCCCC" />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: 40,
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#0066FF',
+  },
+  content: {
+    flex: 1,
+  },
+  profileSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  profileImageContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  editIconContainer: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#0066FF',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  menuContainer: {
+    paddingHorizontal: 20,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  menuIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F5F6FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  menuText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000000',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#000000',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  button: {
+    backgroundColor: '#0066FF',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+});
 
 export default ProfileScreen;
