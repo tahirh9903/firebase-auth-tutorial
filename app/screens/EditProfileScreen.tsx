@@ -165,7 +165,7 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ userId, onBack })
               style={styles.input}
               value={dateOfBirth}
               onChangeText={setDateOfBirth}
-              placeholder="DD / MM / YYY"
+              placeholder="MM / DD / YYYY"
             />
           </View>
 

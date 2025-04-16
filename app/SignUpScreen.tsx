@@ -52,7 +52,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onSignUp }) => {
     if (!dateOfBirth.trim()) {
       newErrors.dateOfBirth = 'Date of birth is required';
     } else if (!/^\d{2}\s*\/\s*\d{2}\s*\/\s*\d{4}$/.test(dateOfBirth.trim())) {
-      newErrors.dateOfBirth = 'Date must be in DD/MM/YYYY format';
+      newErrors.dateOfBirth = 'Date must be in MM/DD/YYYY format';
     }
 
     setErrors(newErrors);
@@ -182,7 +182,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onSignUp }) => {
               setDateOfBirth(text);
               setErrors({ ...errors, dateOfBirth: '' });
             }}
-            placeholder="DD / MM / YYY"
+            placeholder="MM / DD / YYYY"
             keyboardType="numeric"
           />
           {renderError('dateOfBirth')}
