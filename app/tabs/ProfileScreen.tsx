@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import { User } from '@firebase/auth';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { ProfileStackParamList } from '../navigation/types';
 import * as ImagePicker from 'expo-image-picker';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
@@ -9,9 +12,13 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import EditProfileScreen from '../screens/EditProfileScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 interface ProfileScreenProps {
   user: User | null;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
   handleAuthentication: () => void;
 }
 
@@ -21,14 +28,20 @@ interface MenuItem {
   onPress: () => void;
 }
 
+type ProfileScreenNavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
+
 const ProfileScreen: React.FC<ProfileScreenProps> = ({
   user,
+  firstName,
+  lastName,
+  phoneNumber,
   handleAuthentication,
 }) => {
+  const navigation = useNavigation<ProfileScreenNavigationProp>();
   const [uploading, setUploading] = useState(false);
   const [profilePhotoURL, setProfilePhotoURL] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
-  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -89,20 +102,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     }
   };
 
-  if (showEditProfile && user) {
-    return (
-      <EditProfileScreen
-        userId={user.uid}
-        onBack={() => setShowEditProfile(false)}
-      />
-    );
-  }
-
   const menuItems: MenuItem[] = [
     {
       icon: <Icon name="person-outline" size={24} color="#000000" />,
       title: 'Profile',
-      onPress: () => setShowEditProfile(true),
+      onPress: () => navigation.navigate('EditProfile', { userId: user?.uid }),
     },
     {
       icon: <Icon name="favorite-border" size={24} color="#000000" />,
@@ -112,17 +116,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     {
       icon: <Icon name="payment" size={24} color="#000000" />,
       title: 'Payment Method',
-      onPress: () => {},
+      onPress: () => navigation.navigate('PaymentMethod'),
     },
     {
       icon: <MaterialCommunityIcons name="shield-lock-outline" size={24} color="#000000" />,
       title: 'Privacy Policy',
-      onPress: () => {},
+      onPress: () => navigation.navigate('PrivacyPolicy'),
     },
     {
       icon: <Icon name="settings" size={24} color="#000000" />,
       title: 'Settings',
-      onPress: () => {},
+      onPress: () => navigation.navigate('Settings'),
     },
     {
       icon: <Icon name="help-outline" size={24} color="#000000" />,
@@ -132,7 +136,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
     {
       icon: <MaterialCommunityIcons name="logout" size={24} color="#000000" />,
       title: 'Logout',
-      onPress: handleAuthentication,
+      onPress: () => setShowLogoutModal(true),
     },
   ];
 
@@ -186,6 +190,36 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           ))}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={showLogoutModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Logout</Text>
+            <Text style={styles.modalMessage}>Are you sure you want to logout?</Text>
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowLogoutModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.logoutButton]}
+                onPress={() => {
+                  setShowLogoutModal(false);
+                  handleAuthentication();
+                }}
+              >
+                <Text style={styles.logoutButtonText}>Yes, Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -211,6 +245,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    paddingBottom: 40,
   },
   profileSection: {
     alignItems: 'center',
@@ -243,6 +278,7 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   menuItem: {
     flexDirection: 'row',
@@ -281,6 +317,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#000000',
+  },
+  modalMessage: {
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#666666',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: '#F0F0F0',
+  },
+  logoutButton: {
+    backgroundColor: '#FF3B30',
+  },
+  cancelButtonText: {
+    color: '#000000',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  logoutButtonText: {
+    color: '#FFFFFF',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

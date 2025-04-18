@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
@@ -99,7 +99,11 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ userId, onBack })
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color="#000000" />
@@ -110,63 +114,65 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ userId, onBack })
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.profileImageContainer}>
-          <Image
-            source={profilePhotoURL ? { uri: profilePhotoURL } : { uri: 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
-            style={styles.profileImage}
-          />
-          <TouchableOpacity 
-            style={styles.editPhotoButton}
-            onPress={pickImage}
-            disabled={uploading}
-          >
-            <MaterialCommunityIcons name="pencil" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="John Doe"
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContent}>
+        <View style={styles.content}>
+          <View style={styles.profileImageContainer}>
+            <Image
+              source={profilePhotoURL ? { uri: profilePhotoURL } : { uri: 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
+              style={styles.profileImage}
             />
+            <TouchableOpacity 
+              style={styles.editPhotoButton}
+              onPress={pickImage}
+              disabled={uploading}
+            >
+              <MaterialCommunityIcons name="pencil" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-              style={styles.input}
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              placeholder="+123 567 89000"
-              keyboardType="phone-pad"
-            />
-          </View>
+          <View style={styles.form}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Full Name</Text>
+              <TextInput
+                style={styles.input}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="John Doe"
+              />
+            </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="johndoe@example.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Phone Number</Text>
+              <TextInput
+                style={styles.input}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                placeholder="+123 567 89000"
+                keyboardType="phone-pad"
+              />
+            </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Date Of Birth</Text>
-            <TextInput
-              style={styles.input}
-              value={dateOfBirth}
-              onChangeText={setDateOfBirth}
-              placeholder="MM / DD / YYYY"
-            />
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="johndoe@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Date Of Birth</Text>
+              <TextInput
+                style={styles.input}
+                value={dateOfBirth}
+                onChangeText={setDateOfBirth}
+                placeholder="MM / DD / YYYY"
+              />
+            </View>
           </View>
 
           <TouchableOpacity 
@@ -176,8 +182,8 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ userId, onBack })
             <Text style={styles.updateButtonText}>Update Profile</Text>
           </TouchableOpacity>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -203,6 +209,13 @@ const styles = StyleSheet.create({
   },
   settingsButton: {
     padding: 8,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+    paddingBottom: 150,
   },
   content: {
     flex: 1,

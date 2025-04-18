@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ScrollView } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { getAuth } from 'firebase/auth';
 import { 
@@ -254,10 +254,7 @@ const CalendarScreen = () => {
                           <Text style={styles.actionButtonText}>Edit</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          onPress={() => {
-                            console.log('Delete button pressed for event:', event.id);
-                            handleDeleteEvent(event.id);
-                          }}
+                          onPress={() => handleDeleteEvent(event.id)}
                           style={[styles.actionButton, styles.deleteButton]}
                         >
                           <Text style={styles.actionButtonText}>Delete</Text>
@@ -349,7 +346,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     width: '90%',
-    alignItems: 'center',
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 20,
@@ -428,6 +425,10 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  scrollView: {
+    width: '100%',
+    maxHeight: '80%',
   },
 });
 
