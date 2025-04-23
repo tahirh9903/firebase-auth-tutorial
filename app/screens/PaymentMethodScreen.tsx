@@ -181,7 +181,7 @@ const PaymentMethodScreen = () => {
           
           <TouchableOpacity 
             style={styles.paymentOption}
-            onPress={() => navigation.navigate('AddCard' as never)}
+            onPress={() => navigation.navigate('AddCard', { card: undefined })}
           >
             <Icon name="add-circle-outline" size={24} color="#0066FF" />
             <Text style={styles.paymentOptionText}>Add New Card</Text>

@@ -1,37 +1,40 @@
-// This is a simple encryption implementation. In a production environment,
-// you should use a more secure encryption method and proper key management
+// This is a simple encryption implementation for demo purposes.
+// In a production environment, use a more secure encryption method.
 export const encrypt = async (text: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
+  // Simple base64 encoding for demo purposes
+  if (typeof text !== 'string') {
+    throw new Error('Input must be a string');
+  }
   
-  // Generate a random key
-  const key = await window.crypto.subtle.generateKey(
-    {
-      name: 'AES-GCM',
-      length: 256,
-    },
-    true,
-    ['encrypt']
-  );
+  try {
+    // Use btoa for web, and a fallback for React Native
+    if (typeof btoa === 'function') {
+      return btoa(text);
+    } else {
+      // React Native environment
+      return Buffer.from(text).toString('base64');
+    }
+  } catch (error) {
+    console.error('Encryption error:', error);
+    throw new Error('Failed to encrypt data');
+  }
+};
 
-  // Generate a random IV
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+export const decrypt = async (encryptedText: string): Promise<string> => {
+  if (typeof encryptedText !== 'string') {
+    throw new Error('Input must be a string');
+  }
 
-  // Encrypt the data
-  const encryptedData = await window.crypto.subtle.encrypt(
-    {
-      name: 'AES-GCM',
-      iv,
-    },
-    key,
-    data
-  );
-
-  // Convert the encrypted data to base64
-  const encryptedArray = new Uint8Array(encryptedData);
-  const base64Encrypted = btoa(String.fromCharCode.apply(null, [...encryptedArray]));
-  
-  // Return the encrypted data with the IV
-  const base64Iv = btoa(String.fromCharCode.apply(null, [...iv]));
-  return `${base64Iv}.${base64Encrypted}`;
+  try {
+    // Use atob for web, and a fallback for React Native
+    if (typeof atob === 'function') {
+      return atob(encryptedText);
+    } else {
+      // React Native environment
+      return Buffer.from(encryptedText, 'base64').toString('utf-8');
+    }
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw new Error('Failed to decrypt data');
+  }
 }; 
