@@ -9,8 +9,9 @@ import ChatScreen from './ChatScreen';
 import CalendarScreen from './CalendarScreen';
 import DoctorsScreen from './DoctorsScreen';
 import DismissKeyboard from '../components/DismissKeyboard';
+import type { RootTabParamList } from '../navigation/types';
 
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<RootTabParamList>();
 
 interface AppNavigatorProps {
   user: User;
@@ -31,9 +32,9 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
     <DismissKeyboard>
       <View style={{ flex: 1 }}>
         <Tab.Navigator
-          screenOptions={({ route }: BottomTabScreenProps<any>) => ({
-            tabBarIcon: ({ focused, color, size }: { focused: boolean; color: string; size: number }) => {
-              let iconName: string;
+          screenOptions={({ route }) => ({
+            tabBarIcon: ({ focused, color, size }) => {
+              let iconName: keyof typeof Ionicons.glyphMap;
 
               if (route.name === 'Home') {
                 iconName = focused ? 'home' : 'home-outline';
@@ -104,7 +105,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
           <Tab.Screen
             name="Profile"
             options={{
-              tabBarLabel: 'Profile', // Label for the tab
+              tabBarLabel: 'Profile',
             }}
           >
             {() => (

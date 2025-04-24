@@ -21,8 +21,6 @@ interface ProfileStackProps {
   handleAuthentication: () => void;
 }
 
-type EditProfileRouteProp = RouteProp<ProfileStackParamList, 'EditProfile'>;
-
 const ProfileStackNavigator: React.FC<ProfileStackProps> = ({
   user,
   firstName,
@@ -31,10 +29,28 @@ const ProfileStackNavigator: React.FC<ProfileStackProps> = ({
   handleAuthentication,
 }) => {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator 
+      initialRouteName="UserProfile"
+      screenOptions={{
+        headerShown: true,
+        headerTitleStyle: {
+          color: '#2c3e50',
+          fontSize: 20,
+        },
+        headerTintColor: '#0066FF',
+        headerStyle: {
+          backgroundColor: '#FFFFFF',
+        },
+        presentation: 'card'
+      }}
+    >
       <Stack.Screen 
         name="UserProfile"
-        children={({ navigation }) => (
+        options={{ 
+          headerShown: false
+        }}
+      >
+        {() => (
           <ProfileScreen
             user={user}
             firstName={firstName}
@@ -43,40 +59,56 @@ const ProfileStackNavigator: React.FC<ProfileStackProps> = ({
             handleAuthentication={handleAuthentication}
           />
         )}
-      />
+      </Stack.Screen>
+
       <Stack.Screen 
         name="EditProfile"
-        children={({ navigation, route }) => (
+        options={{ title: 'Edit Profile' }}
+      >
+        {({ navigation, route }) => (
           <EditProfileScreen 
-            userId={route.params.userId || ''}
+            userId={route.params?.userId || ''}
             onBack={() => navigation.goBack()}
           />
         )}
-      />
+      </Stack.Screen>
+
       <Stack.Screen 
         name="Settings"
-        children={({ navigation }) => (
+        options={{ title: 'Settings' }}
+      >
+        {({ navigation }) => (
           <SettingsScreen onBack={() => navigation.goBack()} />
         )}
-      />
+      </Stack.Screen>
+
       <Stack.Screen 
         name="PrivacyPolicy"
-        children={({ navigation }) => (
+        options={{ title: 'Privacy Policy' }}
+      >
+        {({ navigation }) => (
           <PrivacyPolicyScreen onBack={() => navigation.goBack()} />
         )}
-      />
+      </Stack.Screen>
+
       <Stack.Screen 
         name="PaymentMethod"
+        options={{ title: 'Payment Method' }}
         component={PaymentMethodScreen}
       />
+
       <Stack.Screen 
         name="PasswordManager"
-        children={({ navigation }) => (
+        options={{ title: 'Password Manager' }}
+      >
+        {({ navigation }) => (
           <PasswordManagerScreen onBack={() => navigation.goBack()} />
         )}
-      />
+      </Stack.Screen>
+
       <Stack.Screen 
         name="AddCard"
+        options={{ title: 'Add Card' }}
         component={AddCardScreen}
       />
     </Stack.Navigator>
