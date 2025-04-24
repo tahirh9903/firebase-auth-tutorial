@@ -33,7 +33,7 @@ const ProfileStackNavigator: React.FC<ProfileStackProps> = ({
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen 
-        name="Profile"
+        name="UserProfile"
         children={({ navigation }) => (
           <ProfileScreen
             user={user}

@@ -1,35 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, Platform } from 'react-native';
 import { User } from '@firebase/auth';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 interface HomeScreenProps {
   user: User | null;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const [userData, setUserData] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (user) {
         try {
-          console.log('Fetching user profile for uid:', user.uid);
           const userDoc = await getDoc(doc(db, 'users', user.uid));
-          console.log('User doc exists:', userDoc.exists());
           if (userDoc.exists()) {
             const data = userDoc.data();
-            console.log('Fetched user data:', data);
+            console.log('HomeScreen - User Data:', data);
+            console.log('HomeScreen - Photo URL:', data.photoURL);
             setUserData(data);
+            setImageError(false);
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
+          setImageError(true);
         }
-      } else {
-        console.log('No user object available');
       }
     };
 
@@ -92,141 +95,161 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
   ];
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.userInfo}>
-          <View style={styles.userInfoContainer}>
-            <Image
-              source={{ 
-                uri: userData?.photoURL || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'
-              }}
-              style={styles.profileImage}
-            />
-            <View style={styles.userTextContainer}>
-              <Text style={styles.greeting}>Hi, Welcome Back</Text>
-              <Text style={styles.userName}>{userData?.fullName || 'Guest'}</Text>
-            </View>
-          </View>
-          <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton}>
-              <Icon name="notifications-none" size={24} color="#0066FF" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton}>
-              <Icon name="settings" size={24} color="#0066FF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.actionButton}>
-            <Icon name="medical-services" size={24} color="#0066FF" />
-            <Text style={styles.actionText}>Doctors</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Icon name="favorite-border" size={24} color="#0066FF" />
-            <Text style={styles.actionText}>Favorite</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
-            <Icon name="search" size={24} color="#0066FF" />
-            <Text style={styles.actionText}>Search</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.calendar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {weekDays.map((day, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.dayItem,
-                day.date.getDate() === selectedDate.getDate() && styles.selectedDay,
-              ]}
-              onPress={() => setSelectedDate(day.date)}
-            >
-              <Text style={[
-                styles.dayName,
-                day.date.getDate() === selectedDate.getDate() && styles.selectedDayText,
-              ]}>
-                {day.dayNumber}
-              </Text>
-              <Text style={[
-                styles.dayNumber,
-                day.date.getDate() === selectedDate.getDate() && styles.selectedDayText,
-              ]}>
-                {day.dayName}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      <View style={styles.appointments}>
-        <Text style={styles.timeSlot}>11 Wednesday - Today</Text>
-        <View style={styles.appointmentCard}>
-          <Text style={styles.appointmentTime}>10 AM</Text>
-          <View style={styles.appointmentDetails}>
-            <Text style={styles.doctorName}>Dr. Olivia Turner, M.D.</Text>
-            <Text style={styles.appointmentType}>
-              Treatment and prevention of skin and photodermatitis
-            </Text>
-          </View>
-          <View style={styles.appointmentActions}>
-            <TouchableOpacity>
-              <Icon name="videocam" size={20} color="#0066FF" />
-            </TouchableOpacity>
-            <TouchableOpacity>
-              <Icon name="chat" size={20} color="#0066FF" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.doctorsList}>
-        {recommendedDoctors.map((doctor) => (
-          <TouchableOpacity key={doctor.id} style={styles.doctorCard}>
-            <Image
-              source={{ uri: doctor.image }}
-              style={styles.doctorImage}
-              defaultSource={{ uri: 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
-            />
-            <View style={styles.doctorInfo}>
-              <Text style={styles.doctorName}>{doctor.name}</Text>
-              <Text style={styles.doctorSpecialty}>{doctor.specialty}</Text>
-              <View style={styles.doctorStats}>
-                <View style={styles.rating}>
-                  <Icon name="star" size={16} color="#FFD700" />
-                  <Text style={styles.ratingText}>{doctor.rating}</Text>
-                </View>
-                <View style={styles.consultations}>
-                  <Icon name="people" size={16} color="#666" />
-                  <Text style={styles.consultationsText}>{doctor.consultations}</Text>
-                </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.userInfo}>
+            <View style={styles.userInfoContainer}>
+              <View style={[styles.profileImageContainer, imageError && styles.defaultProfileImage]}>
+                <Image
+                  source={{ 
+                    uri: userData?.photoURL
+                  }}
+                  style={styles.profileImage}
+                  onError={(e) => {
+                    console.log('HomeScreen - Image loading error:', e.nativeEvent.error);
+                    setImageError(true);
+                  }}
+                  onLoad={() => {
+                    console.log('HomeScreen - Image loaded successfully');
+                    setImageError(false);
+                  }}
+                />
+              </View>
+              <View style={styles.userTextContainer}>
+                <Text style={styles.greeting}>Hi, Welcome Back</Text>
+                <Text style={styles.userName}>{userData?.fullName || 'Guest'}</Text>
               </View>
             </View>
-            <View style={styles.doctorActions}>
-              <TouchableOpacity>
-                <Icon name="help-outline" size={24} color="#666" />
-              </TouchableOpacity>
-              <TouchableOpacity>
-                <Icon name="favorite-border" size={24} color="#666" />
+            <View style={styles.headerIcons}>
+              <TouchableOpacity 
+                style={styles.iconButton}
+                onPress={() => navigation.navigate('Profile', {
+                  screen: 'Settings',
+                  params: { initialTab: 'notifications' }
+                })}
+              >
+                <Icon name="notifications-none" size={24} color="#0066FF" />
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </ScrollView>
+          </View>
+
+          <View style={styles.quickActions}>
+            <TouchableOpacity style={styles.actionButton}>
+              <Icon name="medical-services" size={24} color="#0066FF" />
+              <Text style={styles.actionText}>Doctors</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton}>
+              <Icon name="search" size={24} color="#0066FF" />
+              <Text style={styles.actionText}>Search</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.calendar}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {weekDays.map((day, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.dayItem,
+                  day.date.getDate() === selectedDate.getDate() && styles.selectedDay,
+                ]}
+                onPress={() => setSelectedDate(day.date)}
+              >
+                <Text style={[
+                  styles.dayName,
+                  day.date.getDate() === selectedDate.getDate() && styles.selectedDayText,
+                ]}>
+                  {day.dayNumber}
+                </Text>
+                <Text style={[
+                  styles.dayNumber,
+                  day.date.getDate() === selectedDate.getDate() && styles.selectedDayText,
+                ]}>
+                  {day.dayName}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        <View style={styles.appointments}>
+          <Text style={styles.timeSlot}>
+            {selectedDate.getDate()} {selectedDate.toLocaleDateString('en-US', { weekday: 'long' })} - {
+              selectedDate.getDate() === new Date().getDate() ? 'Today' : 
+              selectedDate < new Date() ? 'Past' : 'Upcoming'
+            }
+          </Text>
+          <View style={styles.appointmentCard}>
+            <Text style={styles.appointmentTime}>10 AM</Text>
+            <View style={styles.appointmentDetails}>
+              <Text style={styles.doctorName}>Dr. Olivia Turner, M.D.</Text>
+              <Text style={styles.appointmentType}>
+                Treatment and prevention of skin and photodermatitis
+              </Text>
+            </View>
+            <View style={styles.appointmentActions}>
+              <TouchableOpacity>
+                <Icon name="videocam" size={20} color="#0066FF" />
+              </TouchableOpacity>
+              <TouchableOpacity>
+                <Icon name="chat" size={20} color="#0066FF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.doctorsList}>
+          {recommendedDoctors.map((doctor) => (
+            <TouchableOpacity key={doctor.id} style={styles.doctorCard}>
+              <Image
+                source={{ uri: doctor.image }}
+                style={styles.doctorImage}
+                defaultSource={{ uri: 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y' }}
+              />
+              <View style={styles.doctorInfo}>
+                <Text style={styles.doctorName}>{doctor.name}</Text>
+                <Text style={styles.doctorSpecialty}>{doctor.specialty}</Text>
+                <View style={styles.doctorStats}>
+                  <View style={styles.rating}>
+                    <Icon name="star" size={16} color="#FFD700" />
+                    <Text style={styles.ratingText}>{doctor.rating}</Text>
+                  </View>
+                  <View style={styles.consultations}>
+                    <Icon name="people" size={16} color="#666" />
+                    <Text style={styles.consultationsText}>{doctor.consultations}</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.doctorActions}>
+                <TouchableOpacity>
+                  <Icon name="help-outline" size={24} color="#666" />
+                </TouchableOpacity>
+                <TouchableOpacity>
+                  <Icon name="favorite-border" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
   header: {
     padding: 20,
-    paddingTop: 40,
+    paddingTop: Platform.OS === 'ios' ? 8 : 20,
   },
   userInfo: {
     flexDirection: 'row',
@@ -238,23 +261,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  profileImageContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  defaultProfileImage: {
+    backgroundColor: '#E1E1E1',
   },
   userTextContainer: {
     flexDirection: 'column',
+    justifyContent: 'center',
   },
   greeting: {
     fontSize: 14,
-    color: '#666',
+    color: '#666666',
+    marginBottom: 4,
   },
   userName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
+    color: '#000000',
   },
   headerIcons: {
     flexDirection: 'row',

@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Alert,
   Modal,
+  SafeAreaView,
+  Platform,
 } from 'react-native';
 import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import {
@@ -98,8 +100,7 @@ const ChatScreen = () => {
     const messagesRef = collection(db, 'messages');
     const q = query(
       messagesRef,
-      where('participants', 'array-contains', currentUser.email),
-      orderBy('timestamp', 'desc')
+      where('participants', 'array-contains', currentUser.email)
     );
 
     const unsubscribe = onSnapshot(
@@ -142,8 +143,13 @@ const ChatScreen = () => {
             }
           });
 
+          // Sort messages by timestamp
+          const sortedMessages = messageList.sort((a, b) => 
+            (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0)
+          );
+
           // Update messages state
-          setMessages(messageList);
+          setMessages(sortedMessages);
 
           // Update conversations state
           setConversationsState({
@@ -165,7 +171,7 @@ const ChatScreen = () => {
 
     // Cleanup listener on unmount or when currentUser changes
     return () => unsubscribe();
-  }, [currentUser?.email]); // Only re-run when email changes
+  }, [currentUser?.email]);
 
   const handleSendMessage = async () => {
     if (!currentUser || !newMessage.trim() || !(receiverEmail || selectedChat)) {
@@ -273,81 +279,83 @@ const ChatScreen = () => {
   if (!selectedChat) {
     // Show conversations list
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerText}>Messages</Text>
-          <TouchableOpacity 
-            style={styles.newChatButton} 
-            onPress={startNewChat}
-          >
-            <Text style={styles.newChatButtonText}>+</Text>
-          </TouchableOpacity>
-        </View>
-
-        <FlatList
-          data={conversationsState.data}
-          keyExtractor={(item) => item.email}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.conversationItem}
-              onPress={() => selectChat(item.email)}
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.headerText}>Messages</Text>
+            <TouchableOpacity 
+              style={styles.newChatButton} 
+              onPress={startNewChat}
             >
-              <View style={styles.conversationContent}>
-                <Text style={styles.emailText}>{item.email}</Text>
-                <Text style={styles.lastMessageText} numberOfLines={1}>
-                  {item.lastMessage}
+              <Text style={styles.newChatButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={conversationsState.data}
+            keyExtractor={(item) => item.email}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.conversationItem}
+                onPress={() => selectChat(item.email)}
+              >
+                <View style={styles.conversationContent}>
+                  <Text style={styles.emailText}>{item.email}</Text>
+                  <Text style={styles.lastMessageText} numberOfLines={1}>
+                    {item.lastMessage}
+                  </Text>
+                </View>
+                {item.unread && <View style={styles.unreadDot} />}
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={() => (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {conversationsState.isLoading 
+                    ? 'Loading conversations...' 
+                    : 'No conversations yet'}
                 </Text>
               </View>
-              {item.unread && <View style={styles.unreadDot} />}
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {conversationsState.isLoading 
-                  ? 'Loading conversations...' 
-                  : 'No conversations yet'}
-              </Text>
-            </View>
-          )}
-        />
+            )}
+          />
 
-        {/* New Chat Modal */}
-        <Modal
-          visible={showNewChat}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={hideNewChatModal}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>New Message</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Enter recipient email"
-                value={receiverEmail}
-                onChangeText={setReceiverEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <View style={styles.modalButtons}>
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={hideNewChatModal}
-                >
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.startButton]}
-                  onPress={handleNewChat}
-                >
-                  <Text style={styles.buttonText}>Start Chat</Text>
-                </TouchableOpacity>
+          {/* New Chat Modal */}
+          <Modal
+            visible={showNewChat}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={hideNewChatModal}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>New Message</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Enter recipient email"
+                  value={receiverEmail}
+                  onChangeText={setReceiverEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity 
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={hideNewChatModal}
+                  >
+                    <Text style={styles.buttonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.modalButton, styles.startButton]}
+                    onPress={handleNewChat}
+                  >
+                    <Text style={styles.buttonText}>Start Chat</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
-          </View>
-        </Modal>
-      </View>
+          </Modal>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -359,52 +367,58 @@ const ChatScreen = () => {
   ).sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => setSelectedChat(null)}
-        >
-          <Text>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerText}>{selectedChat}</Text>
-      </View>
-
-      <FlatList
-        data={chatMessages}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View
-            style={[
-              styles.messageContainer,
-              item.senderEmail === currentUser?.email
-                ? styles.sentMessage
-                : styles.receivedMessage,
-            ]}
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => setSelectedChat(null)}
           >
-            <Text style={styles.messageText}>{item.text}</Text>
-          </View>
-        )}
-        inverted
-      />
+            <Text>←</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerText}>{selectedChat}</Text>
+        </View>
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type a message..."
-          value={newMessage}
-          onChangeText={setNewMessage}
-          multiline
+        <FlatList
+          data={chatMessages}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View
+              style={[
+                styles.messageContainer,
+                item.senderEmail === currentUser?.email
+                  ? styles.sentMessage
+                  : styles.receivedMessage,
+              ]}
+            >
+              <Text style={styles.messageText}>{item.text}</Text>
+            </View>
+          )}
+          inverted
         />
-        <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
-          <Text style={styles.sendButtonText}>Send</Text>
-        </TouchableOpacity>
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Type a message..."
+            value={newMessage}
+            onChangeText={setNewMessage}
+            multiline
+          />
+          <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
+            <Text style={styles.sendButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
@@ -414,6 +428,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 15,
+    paddingTop: Platform.OS === 'ios' ? 8 : 15,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
