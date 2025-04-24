@@ -105,18 +105,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const menuItems: MenuItem[] = [
     {
       icon: <Icon name="person-outline" size={24} color="#000000" />,
-      title: 'Profile',
+      title: 'Edit Profile',
       onPress: () => navigation.navigate('EditProfile', { userId: user?.uid }),
-    },
-    {
-      icon: <Icon name="favorite-border" size={24} color="#000000" />,
-      title: 'Favorite',
-      onPress: () => {},
     },
     {
       icon: <Icon name="payment" size={24} color="#000000" />,
       title: 'Payment Method',
       onPress: () => navigation.navigate('PaymentMethod'),
+    },
+    {
+      icon: <Icon name="lock-outline" size={24} color="#000000" />,
+      title: 'Password Manager',
+      onPress: () => navigation.navigate('PasswordManager'),
     },
     {
       icon: <MaterialCommunityIcons name="shield-lock-outline" size={24} color="#000000" />,
@@ -127,11 +127,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       icon: <Icon name="settings" size={24} color="#000000" />,
       title: 'Settings',
       onPress: () => navigation.navigate('Settings'),
-    },
-    {
-      icon: <Icon name="help-outline" size={24} color="#000000" />,
-      title: 'Help',
-      onPress: () => {},
     },
     {
       icon: <MaterialCommunityIcons name="logout" size={24} color="#000000" />,
