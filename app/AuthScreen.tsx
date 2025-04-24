@@ -1,253 +1,201 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, DimensionValue } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import SignUpScreen from './SignUpScreen';
-
-// Define the type for the styles
-interface Styles {
-  container: any;
-  backButton: any;
-  mainContent: any;
-  title: any;
-  subtitle: any;
-  inputLabel: any;
-  input: any;
-  inputContainer: any;
-  showPasswordButton: any;
-  forgetPassword: any;
-  button: any;
-  buttonText: any;
-  socialContainer: any;
-  socialText: any;
-  socialButtonsContainer: any;
-  socialButton: any;
-  signUpContainer: any;
-  signUpText: any;
-  signUpLink: any;
-  orText: any;
-}
-
-const styles = StyleSheet.create<Styles>({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    padding: 20,
-  },
-  backButton: {
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  mainContent: {
-    flex: 1,
-    paddingTop: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold' as const,
-    color: '#000000',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666666',
-    marginBottom: 32,
-  },
-  inputLabel: {
-    fontSize: 16,
-    color: '#000000',
-    marginBottom: 8,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  input: {
-    height: 50,
-    backgroundColor: '#F5F6FA',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-  },
-  showPasswordButton: {
-    position: 'absolute' as const,
-    right: 16,
-    top: 12,
-  },
-  forgetPassword: {
-    alignSelf: 'flex-end' as const,
-    color: '#0066FF',
-    fontSize: 14,
-    marginBottom: 24,
-  },
-  button: {
-    height: 50,
-    backgroundColor: '#0066FF',
-    borderRadius: 25,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-    marginBottom: 24,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600' as const,
-  },
-  socialContainer: {
-    alignItems: 'center' as const,
-  },
-  socialText: {
-    color: '#666666',
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  socialButtonsContainer: {
-    flexDirection: 'row' as const,
-    justifyContent: 'center' as const,
-    gap: 16,
-  },
-  socialButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F5F6FA',
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
-  },
-  signUpContainer: {
-    flexDirection: 'row' as const,
-    justifyContent: 'center' as const,
-    marginTop: 24,
-  },
-  signUpText: {
-    color: '#666666',
-    fontSize: 14,
-  },
-  signUpLink: {
-    color: '#0066FF',
-    fontSize: 14,
-    marginLeft: 4,
-  },
-  orText: {
-    color: '#666666',
-    fontSize: 14,
-    textAlign: 'center' as const,
-    marginBottom: 16,
-  },
-});
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  Platform,
+  KeyboardAvoidingView,
+  ScrollView,
+} from 'react-native';
+import { Dispatch, SetStateAction } from 'react';
+import { useRouter } from 'expo-router';
 
 interface AuthScreenProps {
   email: string;
-  setEmail: (email: string) => void;
+  setEmail: Dispatch<SetStateAction<string>>;
   password: string;
-  setPassword: (password: string) => void;
-  handleAuthentication: () => void;
+  setPassword: Dispatch<SetStateAction<string>>;
+  firstName: string;
+  setFirstName: Dispatch<SetStateAction<string>>;
+  lastName: string;
+  setLastName: Dispatch<SetStateAction<string>>;
+  phoneNumber: string;
+  setPhoneNumber: Dispatch<SetStateAction<string>>;
+  isLogin: boolean;
+  setIsLogin: Dispatch<SetStateAction<boolean>>;
+  handleAuthentication: () => Promise<void>;
 }
 
-const AuthScreen: React.FC<AuthScreenProps> = ({
+export default function AuthScreen({
   email,
   setEmail,
   password,
   setPassword,
-  handleAuthentication,
-}) => {
-  const [isSignUp, setIsSignUp] = React.useState(false);
-  const [showPassword, setShowPassword] = React.useState(false);
-
-  const handleSignUp = (data: {
-    fullName: string;
-    password: string;
-    email: string;
-    mobileNumber: string;
-    dateOfBirth: string;
-  }) => {
-    // Handle sign up logic here
-    console.log('Sign up data:', data);
-  };
-
-  if (isSignUp) {
-    return (
-      <SignUpScreen
-        onBack={() => setIsSignUp(false)}
-        onSignUp={handleSignUp}
-      />
-    );
-  }
+  firstName,
+  setFirstName,
+  lastName,
+  setLastName,
+  phoneNumber,
+  setPhoneNumber,
+  isLogin,
+  setIsLogin,
+  handleAuthentication
+}: AuthScreenProps) {
+  const router = useRouter();
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.backButton}>
-        <Icon name="arrow-back" size={24} color="#000000" />
-      </TouchableOpacity>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.push('/')}
+          >
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
 
-      <View style={styles.mainContent}>
-        <Text style={styles.title}>Welcome</Text>
-        <Text style={styles.subtitle}>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</Text>
+          <View style={styles.header}>
+            <Text style={styles.title}>{isLogin ? 'Welcome Back' : 'Create Account'}</Text>
+            <Text style={styles.subtitle}>
+              {isLogin ? 'Sign in to continue' : 'Sign up to get started'}
+            </Text>
+          </View>
 
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Email or Mobile Number</Text>
+          {!isLogin && (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your first name"
+                placeholderTextColor="#999"
+                value={firstName}
+                onChangeText={setFirstName}
+                autoCapitalize="words"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your last name"
+                placeholderTextColor="#999"
+                value={lastName}
+                onChangeText={setLastName}
+                autoCapitalize="words"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your phone number"
+                placeholderTextColor="#999"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+              />
+            </>
+          )}
+
           <TextInput
             style={styles.input}
+            placeholder="Enter your email address"
+            placeholderTextColor="#999"
             value={email}
             onChangeText={setEmail}
-            placeholder="example@example.com"
-            autoCapitalize="none"
             keyboardType="email-address"
+            autoCapitalize="none"
           />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Password</Text>
           <TextInput
             style={styles.input}
+            placeholder={isLogin ? "Enter your password" : "Create a strong password"}
+            placeholderTextColor="#999"
             value={password}
             onChangeText={setPassword}
-            placeholder="***************"
-            secureTextEntry={!showPassword}
+            secureTextEntry
           />
-          <TouchableOpacity 
-            style={styles.showPasswordButton}
-            onPress={() => setShowPassword(!showPassword)}
+
+          <TouchableOpacity style={styles.button} onPress={handleAuthentication}>
+            <Text style={styles.buttonText}>
+              {isLogin ? 'Login' : 'Create Account'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.switchButton}
+            onPress={() => setIsLogin(!isLogin)}
           >
-            <Icon 
-              name={showPassword ? "visibility-off" : "visibility"} 
-              size={24} 
-              color="#666666" 
-            />
+            <Text style={styles.switchButtonText}>
+              {isLogin
+                ? "Don't have an account? Sign up"
+                : 'Already have an account? Sign in'}
+            </Text>
           </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity>
-          <Text style={styles.forgetPassword}>Forget Password</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.button} onPress={handleAuthentication}>
-          <Text style={styles.buttonText}>Log In</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.orText}>or sign up with</Text>
-
-        <View style={styles.socialButtonsContainer}>
-          <TouchableOpacity style={styles.socialButton}>
-            <FontAwesome name="google" size={20} color="#DB4437" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialButton}>
-            <FontAwesome name="facebook" size={20} color="#4267B2" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.socialButton}>
-            <MaterialCommunityIcons name="fingerprint" size={20} color="#000000" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.signUpContainer}>
-          <Text style={styles.signUpText}>Don't have an account?</Text>
-          <TouchableOpacity onPress={() => setIsSignUp(true)}>
-            <Text style={styles.signUpLink}>Sign Up</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
-};
+}
 
-export default AuthScreen;
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 20,
+  },
+  backButton: {
+    marginBottom: 20,
+    paddingVertical: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#002B5B',
+    fontWeight: '600',
+  },
+  header: {
+    marginBottom: 30,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+  },
+  input: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+    fontSize: 16,
+    color: '#333',
+  },
+  button: {
+    backgroundColor: '#002B5B',
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  switchButton: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  switchButtonText: {
+    color: '#002B5B',
+    fontSize: 16,
+  },
+}); 

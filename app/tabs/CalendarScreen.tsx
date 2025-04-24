@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ScrollView, SafeAreaView } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { getAuth } from 'firebase/auth';
 import { 
@@ -220,120 +220,145 @@ const CalendarScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <Calendar
-        onDayPress={handleDayPress}
-        markedDates={getMarkedDates()}
-        theme={{
-          todayTextColor: '#50cebb',
-          selectedDayBackgroundColor: '#50cebb',
-        }}
-      />
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            {!isEditMode && selectedEvents.length > 0 ? (
-              // Show list of events
-              <>
-                <Text style={styles.modalTitle}>Events for {selectedDate}</Text>
-                {selectedEvents.map((event) => (
-                  <View key={event.id} style={styles.eventItem}>
-                    <View style={styles.eventHeader}>
-                      <Text style={styles.eventTitle}>{event.title}</Text>
-                      <View style={styles.eventActions}>
-                        <TouchableOpacity
-                          onPress={() => handleEditEvent(event)}
-                          style={styles.actionButton}
-                        >
-                          <Text style={styles.actionButtonText}>Edit</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => handleDeleteEvent(event.id)}
-                          style={[styles.actionButton, styles.deleteButton]}
-                        >
-                          <Text style={styles.actionButtonText}>Delete</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                    <Text style={styles.eventDescription}>{event.description}</Text>
-                  </View>
-                ))}
-                <TouchableOpacity
-                  style={[styles.button, styles.addButton]}
-                  onPress={() => {
-                    setIsEditMode(false);
-                    setEditingEvent(null);
-                    setEventTitle('');
-                    setEventDescription('');
-                    setSelectedEvents([]);
-                  }}
-                >
-                  <Text style={styles.buttonText}>Add New Event</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              // Show add/edit form
-              <>
-                <Text style={styles.modalTitle}>
-                  {isEditMode ? 'Edit Event' : `Add Event for ${selectedDate}`}
-                </Text>
-                
-                <TextInput
-                  style={styles.input}
-                  placeholder="Event Title"
-                  value={eventTitle}
-                  onChangeText={setEventTitle}
-                />
-                
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Event Description"
-                  value={eventDescription}
-                  onChangeText={setEventDescription}
-                  multiline
-                  numberOfLines={4}
-                />
-
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity
-                    style={[styles.button, styles.cancelButton]}
-                    onPress={() => {
-                      setModalVisible(false);
-                      setIsEditMode(false);
-                      setEditingEvent(null);
-                    }}
-                  >
-                    <Text style={styles.buttonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={[styles.button, styles.addButton]}
-                    onPress={isEditMode ? handleUpdateEvent : handleAddEvent}
-                  >
-                    <Text style={styles.buttonText}>
-                      {isEditMode ? 'Update Event' : 'Add Event'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-          </View>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Calendar</Text>
         </View>
-      </Modal>
-    </View>
+
+        <Calendar
+          onDayPress={handleDayPress}
+          markedDates={getMarkedDates()}
+          theme={{
+            todayTextColor: '#50cebb',
+            selectedDayBackgroundColor: '#50cebb',
+          }}
+        />
+
+        <View style={styles.eventsContainer}>
+          <Modal
+            animationType="slide"
+            transparent={true}
+            visible={modalVisible}
+            onRequestClose={() => setModalVisible(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                {!isEditMode && selectedEvents.length > 0 ? (
+                  // Show list of events
+                  <>
+                    <Text style={styles.modalTitle}>Events for {selectedDate}</Text>
+                    {selectedEvents.map((event) => (
+                      <View key={event.id} style={styles.eventItem}>
+                        <View style={styles.eventHeader}>
+                          <Text style={styles.eventTitle}>{event.title}</Text>
+                          <View style={styles.eventActions}>
+                            <TouchableOpacity
+                              onPress={() => handleEditEvent(event)}
+                              style={styles.actionButton}
+                            >
+                              <Text style={styles.actionButtonText}>Edit</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => handleDeleteEvent(event.id)}
+                              style={[styles.actionButton, styles.deleteButton]}
+                            >
+                              <Text style={styles.actionButtonText}>Delete</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                        <Text style={styles.eventDescription}>{event.description}</Text>
+                      </View>
+                    ))}
+                    <TouchableOpacity
+                      style={[styles.button, styles.addButton]}
+                      onPress={() => {
+                        setIsEditMode(false);
+                        setEditingEvent(null);
+                        setEventTitle('');
+                        setEventDescription('');
+                        setSelectedEvents([]);
+                      }}
+                    >
+                      <Text style={styles.buttonText}>Add New Event</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  // Show add/edit form
+                  <>
+                    <Text style={styles.modalTitle}>
+                      {isEditMode ? 'Edit Event' : `Add Event for ${selectedDate}`}
+                    </Text>
+                    
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Event Title"
+                      value={eventTitle}
+                      onChangeText={setEventTitle}
+                    />
+                    
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      placeholder="Event Description"
+                      value={eventDescription}
+                      onChangeText={setEventDescription}
+                      multiline
+                      numberOfLines={4}
+                    />
+
+                    <View style={styles.buttonContainer}>
+                      <TouchableOpacity
+                        style={[styles.button, styles.cancelButton]}
+                        onPress={() => {
+                          setModalVisible(false);
+                          setIsEditMode(false);
+                          setEditingEvent(null);
+                        }}
+                      >
+                        <Text style={styles.buttonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity
+                        style={[styles.button, styles.addButton]}
+                        onPress={isEditMode ? handleUpdateEvent : handleAddEvent}
+                      >
+                        <Text style={styles.buttonText}>
+                          {isEditMode ? 'Update Event' : 'Add Event'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+          </Modal>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#FFFFFF',
+  },
+  header: {
+    padding: 20,
+    paddingTop: Platform.OS === 'ios' ? 8 : 20,
+    backgroundColor: '#FFFFFF',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c3e50',
   },
   modalContainer: {
     flex: 1,
@@ -429,6 +454,9 @@ const styles = StyleSheet.create({
   scrollView: {
     width: '100%',
     maxHeight: '80%',
+  },
+  eventsContainer: {
+    flex: 1,
   },
 });
 

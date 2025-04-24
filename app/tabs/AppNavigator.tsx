@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator, BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 import { User } from '@firebase/auth';
 import { Ionicons } from '@expo/vector-icons'; // Import icons from a library like Expo Icons
 import HomeScreen from './HomeScreen'; // Import the HomeScreen
@@ -9,8 +9,9 @@ import ChatScreen from './ChatScreen';
 import CalendarScreen from './CalendarScreen';
 import DoctorsScreen from './DoctorsScreen';
 import DismissKeyboard from '../components/DismissKeyboard';
+import type { RootTabParamList } from '../navigation/types';
 
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<RootTabParamList>();
 
 interface AppNavigatorProps {
   user: User;
@@ -31,20 +32,20 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
     <DismissKeyboard>
       <View style={{ flex: 1 }}>
         <Tab.Navigator
-          screenOptions={({ route }: BottomTabScreenProps<any>) => ({
-            tabBarIcon: ({ focused, color, size }: { focused: boolean; color: string; size: number }) => {
-              let iconName: 'home' | 'home-outline' | 'person' | 'person-outline' | 'chatbubbles' | 'chatbubbles-outline' | 'calendar-sharp' | 'calendar-outline' | 'medical' | 'medical-outline';
+          screenOptions={({ route }) => ({
+            tabBarIcon: ({ focused, color, size }) => {
+              let iconName: keyof typeof Ionicons.glyphMap;
 
               if (route.name === 'Home') {
-                iconName = focused ? 'home-outline' : 'home-outline';
+                iconName = focused ? 'home' : 'home-outline';
               } else if (route.name === 'Profile') {
-                iconName = focused ? 'person-outline' : 'person-outline';
+                iconName = focused ? 'person' : 'person-outline';
               } else if (route.name === 'Chat') {
-                iconName = focused ? 'chatbubbles-outline' : 'chatbubbles-outline';
+                iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
               } else if (route.name === 'Calendar') {
-                iconName = focused ? 'calendar-outline' : 'calendar-outline';
+                iconName = focused ? 'calendar' : 'calendar-outline';
               } else if (route.name === 'Doctors') {
-                iconName = focused ? 'medical-outline' : 'medical-outline';
+                iconName = focused ? 'medical' : 'medical-outline';
               } else {
                 iconName = 'home';
               }
@@ -60,7 +61,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
               borderRadius: 50,
               height: 60,
               position: 'absolute',
-              bottom: 20,
+              bottom: Platform.OS === 'ios' ? 20 : 10,
               left: 20,
               right: 20,
               elevation: 5,
@@ -76,6 +77,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
               height: 60,
               padding: 10,
             },
+            headerShown: false,
           })}
         >
           <Tab.Screen
@@ -103,7 +105,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
           <Tab.Screen
             name="Profile"
             options={{
-              tabBarLabel: 'Profile', // Label for the tab
+              tabBarLabel: 'Profile',
             }}
           >
             {() => (

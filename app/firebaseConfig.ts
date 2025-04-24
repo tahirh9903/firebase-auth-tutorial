@@ -1,7 +1,8 @@
 import { initializeApp } from '@firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getAuth, setPersistence, indexedDBLocalPersistence } from 'firebase/auth';
+
 const firebaseConfig = {
   apiKey: "AIzaSyDaMNgofgnJCciKchPzeBQebRx01dU4_4k",
   authDomain: "fir-auth-tutorial-9a8a7.firebaseapp.com",
@@ -15,6 +16,8 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const auth = getAuth(app);
-setPersistence(auth, browserLocalPersistence);
 
 export { app, db, storage, auth };
+
+// Add default export
+export default { app, db, storage, auth };

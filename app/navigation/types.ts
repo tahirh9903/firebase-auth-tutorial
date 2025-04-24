@@ -2,7 +2,7 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 import { SavedCard } from '../screens/PaymentMethodScreen';
 
 export type ProfileStackParamList = {
-  Profile: undefined;
+  UserProfile: undefined;
   EditProfile: { userId: string | undefined };
   Settings: undefined;
   PrivacyPolicy: undefined;

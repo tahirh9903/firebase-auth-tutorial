@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Modal, SafeAreaView, Platform } from 'react-native';
 import { User } from '@firebase/auth';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -105,18 +105,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const menuItems: MenuItem[] = [
     {
       icon: <Icon name="person-outline" size={24} color="#000000" />,
-      title: 'Profile',
+      title: 'Edit Profile',
       onPress: () => navigation.navigate('EditProfile', { userId: user?.uid }),
-    },
-    {
-      icon: <Icon name="favorite-border" size={24} color="#000000" />,
-      title: 'Favorite',
-      onPress: () => {},
     },
     {
       icon: <Icon name="payment" size={24} color="#000000" />,
       title: 'Payment Method',
       onPress: () => navigation.navigate('PaymentMethod'),
+    },
+    {
+      icon: <Icon name="lock-outline" size={24} color="#000000" />,
+      title: 'Password Manager',
+      onPress: () => navigation.navigate('PasswordManager'),
     },
     {
       icon: <MaterialCommunityIcons name="shield-lock-outline" size={24} color="#000000" />,
@@ -127,11 +127,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
       icon: <Icon name="settings" size={24} color="#000000" />,
       title: 'Settings',
       onPress: () => navigation.navigate('Settings'),
-    },
-    {
-      icon: <Icon name="help-outline" size={24} color="#000000" />,
-      title: 'Help',
-      onPress: () => {},
     },
     {
       icon: <MaterialCommunityIcons name="logout" size={24} color="#000000" />,
@@ -152,15 +147,12 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color="#000000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Profile</Text>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Profile</Text>
+        </View>
 
-      <ScrollView style={styles.content}>
         <View style={styles.profileSection}>
           <TouchableOpacity style={styles.profileImageContainer} onPress={pickImage} disabled={uploading}>
             <Image
@@ -220,32 +212,28 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
     padding: 20,
-    paddingTop: 40,
-  },
-  backButton: {
-    marginRight: 16,
+    paddingTop: Platform.OS === 'ios' ? 8 : 20,
+    backgroundColor: '#FFFFFF',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#0066FF',
-  },
-  content: {
-    flex: 1,
-    paddingBottom: 40,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c3e50',
   },
   profileSection: {
     alignItems: 'center',

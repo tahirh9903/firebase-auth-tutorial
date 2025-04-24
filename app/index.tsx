@@ -11,92 +11,97 @@ import { getFirestore, doc, setDoc, getDoc } from '@firebase/firestore'; // Impo
 import { app } from './firebaseConfig';
 import AppNavigator from './tabs/AppNavigator';
 import AuthScreen from './AuthScreen';
+import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView } from 'react-native';
+import { useRouter } from 'expo-router';
 
-export default function Index() {
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [firstName, setFirstName] = useState<string>('');
-  const [lastName, setLastName] = useState<string>('');
-  const [phoneNumber, setPhoneNumber] = useState<string>('');
-  const [user, setUser] = useState<User | null>(null);
-  const [isLogin, setIsLogin] = useState<boolean>(true);
-
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Fetch additional user info from Firestore
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          setFirstName(userDoc.data().firstName);
-          setLastName(userDoc.data().lastName);
-          setPhoneNumber(userDoc.data().phoneNumber);
-        }
-      }
-      setUser(user);
-    });
-
-    return () => unsubscribe();
-  }, [auth, db]);
-
-  const handleAuthentication = async () => {
-    try {
-      if (user) {
-        // If user is already authenticated, log out
-        await signOut(auth);
-      } else {
-        // Sign in or sign up
-        if (isLogin) {
-          // Sign in
-          await signInWithEmailAndPassword(auth, email, password);
-        } else {
-          // Sign up
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          // Store additional user info in Firestore
-          await setDoc(doc(db, 'users', userCredential.user.uid), {
-            firstName,
-            lastName,
-            phoneNumber,
-            email,
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Authentication error:', (error as Error).message);
-    }
-  };
+export default function IntroScreen() {
+  const router = useRouter();
 
   return (
-    <>
-      {user ? (
-        // If the user is authenticated, show the tab navigation
-        <AppNavigator
-          user={user}
-          firstName={firstName}
-          lastName={lastName}
-          phoneNumber={phoneNumber}
-          handleAuthentication={handleAuthentication}
+    <SafeAreaView style={styles.container}>
+      <View style={styles.logoContainer}>
+        <Image
+          source={require('../assets/images/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
         />
-      ) : (
-        // If the user is not authenticated, show the login/signup screen
-        <AuthScreen
-          email={email}
-          setEmail={setEmail}
-          password={password}
-          setPassword={setPassword}
-          firstName={firstName}
-          setFirstName={setFirstName}
-          lastName={lastName}
-          setLastName={setLastName}
-          phoneNumber={phoneNumber}
-          setPhoneNumber={setPhoneNumber}
-          isLogin={isLogin}
-          setIsLogin={setIsLogin}
-          handleAuthentication={handleAuthentication}
-        />
-      )}
-    </>
+        <Text style={styles.appName}>MediConnect</Text>
+        <Text style={styles.tagline}>Your Health, Our Priority</Text>
+      </View>
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity 
+          style={[styles.button, styles.signInButton]} 
+          onPress={() => router.push('/welcome?mode=signin')}
+        >
+          <Text style={styles.buttonText}>Sign In</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.button, styles.signUpButton]}
+          onPress={() => router.push('/welcome?mode=signup')}
+        >
+          <Text style={[styles.buttonText, styles.signUpText]}>Create Account</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  logoContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  logo: {
+    width: 180,
+    height: 180,
+    marginBottom: 24,
+  },
+  appName: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#002B5B', // MediConnect navy blue
+    marginBottom: 12,
+  },
+  tagline: {
+    fontSize: 18,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+  buttonContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  button: {
+    width: '100%',
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  signInButton: {
+    backgroundColor: '#002B5B', // MediConnect navy blue
+  },
+  signUpButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#002B5B', // MediConnect navy blue
+  },
+  buttonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  signUpText: {
+    color: '#002B5B', // MediConnect navy blue
+  },
+});
