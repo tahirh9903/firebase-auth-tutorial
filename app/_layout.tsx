@@ -5,6 +5,7 @@ import { app } from './firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BiometricAuth from './components/BiometricAuth';
 import { View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -47,23 +48,27 @@ export default function RootLayout() {
 
   if (showBiometric) {
     return (
-      <View style={{ flex: 1 }}>
-        <BiometricAuth
-          onAuthenticate={handleBiometricSuccess}
-          onSkip={handleBiometricSkip}
-        />
-      </View>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>
+          <BiometricAuth
+            onAuthenticate={handleBiometricSuccess}
+            onSkip={handleBiometricSkip}
+          />
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false
-      }}
-    >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="tabs" />
-    </Stack>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Stack
+        screenOptions={{
+          headerShown: false
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="tabs" />
+      </Stack>
+    </GestureHandlerRootView>
   );
 }
