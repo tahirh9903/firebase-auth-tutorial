@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, ScrollView, SafeAreaView } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { getAuth } from 'firebase/auth';
@@ -16,6 +16,10 @@ import {
   getFirestore 
 } from 'firebase/firestore';
 import { app } from '../firebaseConfig';
+import type { RouteProp } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
+import { format } from 'date-fns';
 
 interface Event {
   id: string;
@@ -23,9 +27,81 @@ interface Event {
   description: string;
   date: string;
   userId: string;
+  timeSlot?: string;
+  category?: string;
+  taskType?: string;
+  doctorId?: string;
+  doctorName?: string;
+  doctorSpecialty?: string;
+  doctorHospital?: string;
+  doctorNPI?: string;
 }
 
-const CalendarScreen = () => {
+type CalendarScreenRouteProp = RouteProp<{
+  Calendar: {
+    editMode?: boolean;
+    eventToEdit?: Event;
+    selectedDoctor?: any;
+  };
+}, 'Calendar'>;
+
+interface CalendarScreenProps {
+  route?: CalendarScreenRouteProp;
+}
+
+const TASK_CATEGORIES = [
+  {
+    id: 'exercise',
+    title: 'Exercise',
+    icon: 'fitness',
+    color: '#4CAF50',
+    description: 'Workout, yoga, or any physical activity'
+  },
+  {
+    id: 'medicine',
+    title: 'Medicine',
+    icon: 'medical-services',
+    color: '#2196F3',
+    description: 'Medications and supplements'
+  },
+  {
+    id: 'appointment',
+    title: 'Appointment',
+    icon: 'event',
+    color: '#9C27B0',
+    description: 'General appointments and meetings'
+  },
+  {
+    id: 'meal',
+    title: 'Meal Planning',
+    icon: 'restaurant',
+    color: '#FF9800',
+    description: 'Meals, diet, and nutrition'
+  },
+  {
+    id: 'therapy',
+    title: 'Therapy',
+    icon: 'psychology',
+    color: '#E91E63',
+    description: 'Mental health and therapy sessions'
+  },
+  {
+    id: 'lab',
+    title: 'Lab Test',
+    icon: 'science',
+    color: '#00BCD4',
+    description: 'Laboratory tests and diagnostics'
+  },
+  {
+    id: 'other',
+    title: 'Other',
+    icon: 'more-horiz',
+    color: '#607D8B',
+    description: 'Other health-related tasks'
+  }
+];
+
+const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
   const [selectedDate, setSelectedDate] = useState('');
   const [events, setEvents] = useState<{ [date: string]: Event[] }>({});
   const [modalVisible, setModalVisible] = useState(false);
@@ -35,9 +111,35 @@ const CalendarScreen = () => {
   const [selectedEvents, setSelectedEvents] = useState<Event[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
+  const [showTimeSlots, setShowTimeSlots] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState<any>(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [tempTimeSlot, setTempTimeSlot] = useState<string | null>(null);
+
+  const navigation = useNavigation();
 
   // Get Firestore instance directly
   const firestore = getFirestore(app);
+
+  // Generate time slots from 9am to 5pm with 30-minute intervals
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let hour = 9; hour <= 17; hour++) {
+      const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
+      const ampm = hour < 12 ? 'AM' : 'PM';
+      // Format time with leading zeros and consistent AM/PM format
+      const timeString = `${formattedHour.toString().padStart(2, '0')}:00 ${ampm}`;
+      slots.push(timeString);
+      if (hour !== 17) {
+        slots.push(`${formattedHour.toString().padStart(2, '0')}:30 ${ampm}`);
+      }
+    }
+    return slots;
+  };
+
+  const timeSlots = useMemo(() => generateTimeSlots(), []);
 
   useEffect(() => {
     const auth = getAuth();
@@ -50,30 +152,74 @@ const CalendarScreen = () => {
     }
   }, [currentUser]);
 
+  // Handle edit mode from route params
+  useEffect(() => {
+    if (route?.params?.editMode && route?.params?.eventToEdit) {
+      const event = route.params.eventToEdit;
+      setSelectedDate(event.date);
+      setEventTitle(event.title);
+      setEventDescription(event.description);
+      setSelectedTimeSlot(event.timeSlot || null);
+      setIsEditMode(true);
+      setEditingEvent(event);
+      setModalVisible(true);
+    }
+  }, [route?.params]);
+
+  // Handle selected doctor from route params
+  useEffect(() => {
+    if (route?.params?.selectedDoctor) {
+      setSelectedDoctor(route.params.selectedDoctor);
+      // If a doctor is selected, open the time slots modal
+      setShowTimeSlots(true);
+    }
+  }, [route?.params]);
+
   const fetchEvents = async () => {
     try {
       const eventsRef = collection(firestore, 'events');
-      const q = query(eventsRef, where('userId', '==', currentUser?.uid));
+      const q = query(
+        eventsRef, 
+        where('userId', '==', currentUser?.uid),
+        where('category', '==', 'events') // Only fetch regular calendar events
+      );
       const snapshot = await getDocs(q);
 
       const fetchedEvents: { [date: string]: Event[] } = {};
-      snapshot.forEach((doc) => {
-        const eventData = doc.data();
-        const event: Event = {
-          id: doc.id,
-          title: eventData.title,
-          description: eventData.description,
-          date: eventData.date,
-          userId: eventData.userId
-        };
+      
+      // Process each event
+      for (const docSnapshot of snapshot.docs) {
+        const eventData = docSnapshot.data();
+        const eventId = docSnapshot.id;
         
-        if (!fetchedEvents[event.date]) {
-          fetchedEvents[event.date] = [];
+        // Verify the event still exists
+        const eventRef = doc(firestore, 'events', eventId);
+        const eventDoc = await getDoc(eventRef);
+        
+        if (eventDoc.exists()) {
+          const event: Event = {
+            id: eventId,
+            title: eventData.title,
+            description: eventData.description,
+            date: eventData.date,
+            userId: eventData.userId,
+            timeSlot: eventData.timeSlot,
+            doctorId: eventData.doctorId,
+            doctorName: eventData.doctorName,
+            doctorSpecialty: eventData.doctorSpecialty,
+            doctorHospital: eventData.doctorHospital,
+            doctorNPI: eventData.doctorNPI
+          };
+          
+          // Group events by date
+          if (!fetchedEvents[event.date]) {
+            fetchedEvents[event.date] = [];
+          }
+          fetchedEvents[event.date].push(event);
         }
-        fetchedEvents[event.date].push(event);
-      });
+      }
 
-      console.log('Fetched events:', fetchedEvents);
+      console.log('Fetched calendar events:', fetchedEvents);
       setEvents(fetchedEvents);
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -81,143 +227,268 @@ const CalendarScreen = () => {
     }
   };
 
-  const handleDayPress = (day: { dateString: string }) => {
+  const handleDayPress = async (day: { dateString: string }) => {
+    console.log('Day pressed:', day.dateString);
     setSelectedDate(day.dateString);
-    const dayEvents = events[day.dateString] || [];
-    setSelectedEvents(dayEvents);
     
-    if (dayEvents.length > 0) {
-      // If there are events, show them in a list
-      setModalVisible(true);
-      setIsEditMode(false);
-      setEditingEvent(null);
-      setEventTitle('');
-      setEventDescription('');
-    } else {
-      // If no events, open the add event modal
-      setModalVisible(true);
-      setIsEditMode(false);
-      setEditingEvent(null);
-      setEventTitle('');
-      setEventDescription('');
-    }
-  };
-
-  const handleEditEvent = (event: Event) => {
-    setIsEditMode(true);
-    setEditingEvent(event);
-    setEventTitle(event.title);
-    setEventDescription(event.description);
-  };
-
-  const handleUpdateEvent = async () => {
-    if (!editingEvent || !eventTitle.trim()) {
-      Alert.alert('Error', 'Please enter an event title');
-      return;
-    }
-
+    // Fetch fresh events for the selected date
     try {
-      const eventRef = doc(firestore, 'events', editingEvent.id);
-      await updateDoc(eventRef, {
-        title: eventTitle,
-        description: eventDescription,
-        updatedAt: serverTimestamp(),
-      });
-
-      // Reset form and close modal
-      setEventTitle('');
-      setEventDescription('');
-      setModalVisible(false);
-      setIsEditMode(false);
-      setEditingEvent(null);
-
-      // Refresh events
-      fetchEvents();
-
-      Alert.alert('Success', 'Event updated successfully');
-    } catch (error) {
-      console.error('Error updating event:', error);
-      Alert.alert('Error', 'Failed to update event');
-    }
-  };
-
-  const handleDeleteEvent = async (eventId: string) => {
-    if (!eventId) {
-      console.error('No event ID provided');
-      return;
-    }
-
-    console.log('Attempting to delete event with ID:', eventId);
-    
-    try {
-      // Delete from Firestore
-      const eventRef = doc(firestore, 'events', eventId);
-      await deleteDoc(eventRef);
-      console.log('Successfully deleted from Firestore');
-
-      // Update local state immediately
-      setEvents(prevEvents => {
-        const newEvents = { ...prevEvents };
-        // Remove the event from all dates
-        Object.keys(newEvents).forEach(date => {
-          newEvents[date] = newEvents[date].filter(event => event.id !== eventId);
-          // Remove date key if no events remain
-          if (newEvents[date].length === 0) {
-            delete newEvents[date];
-          }
-        });
-        return newEvents;
-      });
-
-      setSelectedEvents(prev => prev.filter(event => event.id !== eventId));
-      setModalVisible(false);
+      const eventsRef = collection(firestore, 'events');
+      const q = query(
+        eventsRef,
+        where('userId', '==', currentUser?.uid),
+        where('date', '==', day.dateString)
+      );
+      const snapshot = await getDocs(q);
       
-      Alert.alert('Success', 'Event deleted successfully');
+      const validEvents = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Event[];
+
+      setSelectedEvents(validEvents);
     } catch (error) {
-      console.error('Error deleting event:', error);
-      Alert.alert('Error', 'Failed to delete event. Please try again.');
+      console.error('Error fetching events for day:', error);
+      setSelectedEvents([]);
+    }
+    
+    // Show the time slots modal
+    setShowTimeSlots(true);
+  };
+
+  const formatDateForDisplay = (dateString: string) => {
+    try {
+      // Ensure the date string is in YYYY-MM-DD format
+      if (!dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return 'Invalid Date';
+      }
+      const [year, month, day] = dateString.split('-').map(num => parseInt(num, 10));
+      const date = new Date(year, month - 1, day); // month is 0-indexed
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return format(date, 'MMMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid Date';
     }
   };
 
-  const handleAddEvent = async () => {
-    if (!eventTitle.trim()) {
-      Alert.alert('Error', 'Please enter an event title');
+  const handleTimeSlotSelect = async (timeSlot: string) => {
+    setTempTimeSlot(timeSlot);
+    setShowCategoryModal(true);
+    setShowTimeSlots(false);
+  };
+
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+    if (category && tempTimeSlot) {
+      handleAddEvent(tempTimeSlot, category);
+    }
+    setShowCategoryModal(false);
+  };
+
+  const handleAddEvent = async (timeSlot: string, taskCategory: typeof TASK_CATEGORIES[0]) => {
+    if (!timeSlot) {
+      Alert.alert('Error', 'Please select a time slot');
+      return;
+    }
+
+    if (!selectedDate) {
+      Alert.alert('Error', 'Please select a date');
+      return;
+    }
+
+    if (!currentUser?.uid) {
+      Alert.alert('Error', 'Please sign in to schedule tasks');
       return;
     }
 
     try {
+      const formattedTimeSlot = timeSlot.replace(/^(\d):/, '0$1:');
+
       const eventData = {
-        title: eventTitle,
-        description: eventDescription,
+        title: `${taskCategory.title} at ${formattedTimeSlot}`,
+        description: eventDescription || `Scheduled for ${formatDateForDisplay(selectedDate)}`,
         date: selectedDate,
-        userId: currentUser?.uid,
+        timeSlot: formattedTimeSlot,
+        userId: currentUser.uid,
         createdAt: serverTimestamp(),
+        type: 'calendar_event',
+        category: 'events',
+        taskType: taskCategory.id,
+        taskCategory: taskCategory.title
       };
 
-      await addDoc(collection(firestore, 'events'), eventData);
+      const eventRef = collection(firestore, 'events');
+      await addDoc(eventRef, eventData);
       
-      // Reset form and close modal
+      setModalVisible(false);
+      setShowTimeSlots(false);
+      setSelectedTimeSlot(null);
+      setSelectedDoctor(null);
       setEventTitle('');
       setEventDescription('');
-      setModalVisible(false);
+      setSelectedCategory(null);
+      setTempTimeSlot(null);
       
-      // Refresh events
-      fetchEvents();
+      await fetchEvents();
       
-      Alert.alert('Success', 'Event added successfully');
+      Alert.alert('Success', `${taskCategory.title} task added successfully`);
     } catch (error) {
-      console.error('Error adding event:', error);
-      Alert.alert('Error', 'Failed to add event');
+      console.error('Error adding task:', error);
+      Alert.alert('Error', 'Failed to schedule task. Please try again.');
     }
   };
 
   const getMarkedDates = () => {
     const marked: any = {};
+    
+    // Mark dates with events
     Object.keys(events).forEach((date) => {
-      marked[date] = { marked: true, dotColor: '#50cebb' };
+      if (events[date] && events[date].length > 0) {
+        marked[date] = {
+          customStyles: {
+            container: {
+              backgroundColor: events[date].length > 1 ? '#E8F5E9' : '#F5F5F5',
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: '#50cebb'
+            },
+            text: {
+              color: '#333333',
+              fontWeight: 'bold'
+            }
+          }
+        };
+      }
     });
+
+    // Add selected date marking
+    if (selectedDate) {
+      marked[selectedDate] = {
+        ...marked[selectedDate],
+        selected: true,
+        selectedColor: '#0066FF',
+        selectedTextColor: '#FFFFFF'
+      };
+    }
+
     return marked;
   };
+
+  // Update the modal title to show when scheduling with a doctor
+  const getModalTitle = () => {
+    if (selectedDoctor) {
+      return `Schedule with ${selectedDoctor.name}`;
+    }
+    return isEditMode ? 'Edit Event' : `Add Event for ${selectedDate}`;
+  };
+
+  const handleDeleteEvent = async (eventId: string, eventTitle: string) => {
+    if (!eventId) {
+      console.error('No event ID provided');
+      return;
+    }
+
+    Alert.alert(
+      'Delete Appointment',
+      `Are you sure you want to delete the appointment "${eventTitle}"?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const eventRef = doc(firestore, 'events', eventId);
+              await deleteDoc(eventRef);
+              console.log('Successfully deleted from Firestore');
+
+              setEvents(prevEvents => {
+                const newEvents = { ...prevEvents };
+                Object.keys(newEvents).forEach(date => {
+                  newEvents[date] = newEvents[date].filter(event => event.id !== eventId);
+                  if (newEvents[date].length === 0) {
+                    delete newEvents[date];
+                  }
+                });
+                return newEvents;
+              });
+
+              setSelectedEvents(prev => prev.filter(event => event.id !== eventId));
+              setModalVisible(false);
+              
+              Alert.alert('Success', 'Appointment deleted successfully');
+            } catch (error) {
+              console.error('Error deleting event:', error);
+              Alert.alert('Error', 'Failed to delete appointment. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const renderEventItem = (event: Event) => (
+    <View key={event.id} style={styles.eventItem}>
+      <View style={styles.eventHeader}>
+        <View style={styles.eventTitleContainer}>
+          {event.taskType === 'medicine' && (
+            <Icon name="medical-services" size={20} color="#2196F3" style={styles.eventIcon} />
+          )}
+          {event.taskType === 'appointment' && (
+            <Icon name="event" size={20} color="#9C27B0" style={styles.eventIcon} />
+          )}
+          {event.taskType === 'therapy' && (
+            <Icon name="psychology" size={20} color="#E91E63" style={styles.eventIcon} />
+          )}
+          {event.taskType === 'lab' && (
+            <Icon name="science" size={20} color="#00BCD4" style={styles.eventIcon} />
+          )}
+          {event.taskType === 'exercise' && (
+            <Icon name="fitness" size={20} color="#4CAF50" style={styles.eventIcon} />
+          )}
+          {event.taskType === 'meal' && (
+            <Icon name="restaurant" size={20} color="#FF9800" style={styles.eventIcon} />
+          )}
+          {event.taskType === 'other' && (
+            <Icon name="more-horiz" size={20} color="#607D8B" style={styles.eventIcon} />
+          )}
+          <Text style={styles.eventTitle}>{event.title}</Text>
+        </View>
+        <View style={styles.eventActions}>
+          <TouchableOpacity
+            onPress={() => handleDeleteEvent(event.id, event.title)}
+            style={[styles.actionButton, styles.deleteButton]}
+          >
+            <Icon name="trash-outline" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </View>
+      <Text style={styles.eventTimeSlot}>{event.timeSlot}</Text>
+      <Text style={styles.eventDescription}>{event.description}</Text>
+      {event.doctorName && (
+        <View style={styles.doctorInfo}>
+          <Text style={styles.doctorName}>
+            <Icon name="medical" size={14} color="#0066FF" /> {event.doctorName}
+          </Text>
+          {event.doctorSpecialty && (
+            <Text style={styles.doctorSpecialty}>{event.doctorSpecialty}</Text>
+          )}
+          {event.doctorHospital && (
+            <Text style={styles.doctorHospital}>
+              <Icon name="business" size={14} color="#7f8c8d" /> {event.doctorHospital}
+            </Text>
+          )}
+        </View>
+      )}
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -226,116 +497,188 @@ const CalendarScreen = () => {
         style={styles.container}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Calendar</Text>
+          <Text style={styles.headerTitle}>Schedule Tasks</Text>
         </View>
 
         <Calendar
           onDayPress={handleDayPress}
           markedDates={getMarkedDates()}
+          markingType="custom"
           theme={{
-            todayTextColor: '#50cebb',
-            selectedDayBackgroundColor: '#50cebb',
+            todayTextColor: '#0066FF',
+            selectedDayBackgroundColor: '#0066FF',
+            selectedDayTextColor: '#FFFFFF',
+            textDayFontSize: 16,
+            textMonthFontSize: 16,
+            textDayHeaderFontSize: 14,
+            'stylesheet.calendar.header': {
+              dayTextAtIndex0: {
+                color: '#ff6b6b'
+              },
+              dayTextAtIndex6: {
+                color: '#ff6b6b'
+              }
+            }
           }}
         />
 
-        <View style={styles.eventsContainer}>
-          <Modal
-            animationType="slide"
-            transparent={true}
-            visible={modalVisible}
-            onRequestClose={() => setModalVisible(false)}
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalContent}>
-                {!isEditMode && selectedEvents.length > 0 ? (
-                  // Show list of events
-                  <>
-                    <Text style={styles.modalTitle}>Events for {selectedDate}</Text>
-                    {selectedEvents.map((event) => (
-                      <View key={event.id} style={styles.eventItem}>
-                        <View style={styles.eventHeader}>
-                          <Text style={styles.eventTitle}>{event.title}</Text>
-                          <View style={styles.eventActions}>
-                            <TouchableOpacity
-                              onPress={() => handleEditEvent(event)}
-                              style={styles.actionButton}
-                            >
-                              <Text style={styles.actionButtonText}>Edit</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={() => handleDeleteEvent(event.id)}
-                              style={[styles.actionButton, styles.deleteButton]}
-                            >
-                              <Text style={styles.actionButtonText}>Delete</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                        <Text style={styles.eventDescription}>{event.description}</Text>
-                      </View>
-                    ))}
-                    <TouchableOpacity
-                      style={[styles.button, styles.addButton]}
-                      onPress={() => {
-                        setIsEditMode(false);
-                        setEditingEvent(null);
-                        setEventTitle('');
-                        setEventDescription('');
-                        setSelectedEvents([]);
-                      }}
-                    >
-                      <Text style={styles.buttonText}>Add New Event</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  // Show add/edit form
-                  <>
-                    <Text style={styles.modalTitle}>
-                      {isEditMode ? 'Edit Event' : `Add Event for ${selectedDate}`}
-                    </Text>
-                    
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Event Title"
-                      value={eventTitle}
-                      onChangeText={setEventTitle}
-                    />
-                    
-                    <TextInput
-                      style={[styles.input, styles.textArea]}
-                      placeholder="Event Description"
-                      value={eventDescription}
-                      onChangeText={setEventDescription}
-                      multiline
-                      numberOfLines={4}
-                    />
+        {/* Event Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>Appointments for {formatDateForDisplay(selectedDate)}</Text>
+                  <ScrollView style={styles.eventsContainer}>
+                    {selectedEvents.map(renderEventItem)}
+                  </ScrollView>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setModalVisible(false)}
+                  >
+                    <Text style={styles.closeButtonText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
 
-                    <View style={styles.buttonContainer}>
-                      <TouchableOpacity
-                        style={[styles.button, styles.cancelButton]}
-                        onPress={() => {
-                          setModalVisible(false);
-                          setIsEditMode(false);
-                          setEditingEvent(null);
-                        }}
-                      >
-                        <Text style={styles.buttonText}>Cancel</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity
-                        style={[styles.button, styles.addButton]}
-                        onPress={isEditMode ? handleUpdateEvent : handleAddEvent}
-                      >
-                        <Text style={styles.buttonText}>
-                          {isEditMode ? 'Update Event' : 'Add Event'}
+        {/* Time Slots Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={showTimeSlots}
+          onRequestClose={() => setShowTimeSlots(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setShowTimeSlots(false)}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContent}>
+                  <Text style={styles.modalTitle}>Select Time</Text>
+                  {selectedDoctor && (
+                    <View style={styles.doctorInfo}>
+                      <Text style={styles.doctorName}>{selectedDoctor.name}</Text>
+                      <Text style={styles.doctorSpecialty}>
+                        {selectedDoctor.specialty}
+                        {selectedDoctor.subSpecialty ? ` (${selectedDoctor.subSpecialty})` : ''}
+                      </Text>
+                      {selectedDoctor.hospital && (
+                        <Text style={styles.doctorHospital}>
+                          <Icon name="business" size={14} color="#7f8c8d" /> {selectedDoctor.hospital}
                         </Text>
-                      </TouchableOpacity>
+                      )}
                     </View>
-                  </>
-                )}
+                  )}
+                  <Text style={styles.modalSubtitle}>
+                    {selectedDate ? formatDateForDisplay(selectedDate) : 'Select a date'}
+                  </Text>
+                  <ScrollView style={styles.timeSlotsContainer}>
+                    {timeSlots.map((slot, index) => {
+                      const formattedSlot = slot.replace(/^(\d):/, '0$1:');
+                      const isSlotTaken = selectedEvents.some(event => event.timeSlot === formattedSlot);
+                      
+                      return (
+                        <TouchableOpacity
+                          key={index}
+                          style={[
+                            styles.timeSlotItem,
+                            selectedTimeSlot === formattedSlot && styles.selectedTimeSlot,
+                            isSlotTaken && styles.takenTimeSlot
+                          ]}
+                          onPress={() => {
+                            if (!isSlotTaken) {
+                              handleTimeSlotSelect(formattedSlot);
+                            }
+                          }}
+                          disabled={isSlotTaken}
+                        >
+                          <Text style={[
+                            styles.timeSlotText,
+                            selectedTimeSlot === formattedSlot && styles.selectedTimeSlotText,
+                            isSlotTaken && styles.takenTimeSlotText
+                          ]}>
+                            {formattedSlot}
+                          </Text>
+                          {isSlotTaken && (
+                            <Text style={styles.takenSlotIndicator}>Taken</Text>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setShowTimeSlots(false)}
+                  >
+                    <Text style={styles.closeButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        {/* Category Selection Modal */}
+        <Modal
+          visible={showCategoryModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowCategoryModal(false)}
+        >
+          <View style={styles.categoryModal}>
+            <View style={styles.categoryContent}>
+              <Text style={styles.categoryTitle}>Select Task Type</Text>
+              <ScrollView>
+                <View style={styles.categoryGrid}>
+                  {TASK_CATEGORIES.map((category) => (
+                    <TouchableOpacity
+                      key={category.id}
+                      style={[
+                        styles.categoryItem,
+                        selectedCategory === category.id && styles.selectedCategoryItem
+                      ]}
+                      onPress={() => setSelectedCategory(category.id)}
+                    >
+                      <View style={[styles.categoryIcon, { backgroundColor: category.color }]}>
+                        <Icon name={category.icon} size={24} color="#FFFFFF" />
+                      </View>
+                      <Text style={styles.categoryItemTitle}>{category.title}</Text>
+                      <Text style={styles.categoryDescription}>{category.description}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setShowCategoryModal(false)}
+                >
+                  <Text style={styles.buttonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.confirmButton]}
+                  onPress={() => {
+                    if (selectedCategory && tempTimeSlot) {
+                      const category = TASK_CATEGORIES.find(cat => cat.id === selectedCategory);
+                      if (category) {
+                        handleAddEvent(tempTimeSlot, category);
+                      }
+                    }
+                    setShowCategoryModal(false);
+                  }}
+                >
+                  <Text style={styles.buttonText}>Confirm</Text>
+                </TouchableOpacity>
               </View>
             </View>
-          </Modal>
-        </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -360,23 +703,73 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2c3e50',
   },
-  modalContainer: {
+  modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 20,
-    width: '90%',
+    borderRadius: 15,
+    width: '100%',
     maxHeight: '80%',
+    padding: 20,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#2c3e50',
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    textAlign: 'center',
+    marginTop: 5,
     marginBottom: 20,
+  },
+  timeSlotsContainer: {
+    marginVertical: 10,
+  },
+  timeSlotItem: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    marginVertical: 5,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  selectedTimeSlot: {
+    backgroundColor: '#50cebb',
+    borderColor: '#50cebb',
+  },
+  timeSlotText: {
+    fontSize: 18,
+    color: '#2c3e50',
+    fontWeight: '500',
+  },
+  selectedTimeSlotText: {
+    color: '#ffffff',
+  },
+  closeButton: {
+    backgroundColor: '#ff6b6b',
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  closeButtonText: {
+    color: '#ffffff',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  eventsContainer: {
+    flex: 1,
   },
   input: {
     width: '100%',
@@ -397,26 +790,49 @@ const styles = StyleSheet.create({
   },
   button: {
     padding: 15,
-    borderRadius: 8,
-    width: '45%',
+    borderRadius: 10,
+    alignItems: 'center',
   },
   addButton: {
     backgroundColor: '#50cebb',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    paddingHorizontal: 10,
+    gap: 15,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 120,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  confirmButton: {
+    backgroundColor: '#0066FF',
   },
   cancelButton: {
     backgroundColor: '#ff6b6b',
   },
   buttonText: {
     color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
-    fontWeight: 'bold',
   },
   eventItem: {
-    width: '100%',
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
   },
   eventHeader: {
     flexDirection: 'row',
@@ -424,14 +840,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  eventTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  eventIcon: {
+    marginRight: 8,
+  },
   eventTitle: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#2c3e50',
     flex: 1,
-  },
-  eventDescription: {
-    fontSize: 14,
-    color: '#666',
   },
   eventActions: {
     flexDirection: 'row',
@@ -439,24 +860,126 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     backgroundColor: '#50cebb',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
+    padding: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteButton: {
     backgroundColor: '#ff6b6b',
   },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
+  eventTimeSlot: {
+    fontSize: 14,
+    color: '#50cebb',
+    marginBottom: 4,
   },
-  scrollView: {
-    width: '100%',
+  eventDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+  },
+  doctorInfo: {
+    backgroundColor: '#f0f5ff',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  doctorName: {
+    fontSize: 14,
+    color: '#0066FF',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  doctorSpecialty: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 4,
+  },
+  doctorHospital: {
+    fontSize: 13,
+    color: '#7f8c8d',
+  },
+  timeSlotLabel: {
+    fontSize: 16,
+    color: '#50cebb',
+    marginBottom: 15,
+    fontWeight: '500',
+  },
+  takenTimeSlot: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#f5c6cb',
+    opacity: 0.7,
+  },
+  takenTimeSlotText: {
+    color: '#721c24',
+  },
+  takenSlotIndicator: {
+    fontSize: 12,
+    color: '#721c24',
+    marginLeft: 8,
+  },
+  categoryModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  categoryContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
     maxHeight: '80%',
   },
-  eventsContainer: {
-    flex: 1,
+  categoryTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  categoryItem: {
+    width: '48%',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  selectedCategoryItem: {
+    borderWidth: 2,
+    borderColor: '#0066FF',
+  },
+  categoryIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  categoryItemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  categoryDescription: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });
 
