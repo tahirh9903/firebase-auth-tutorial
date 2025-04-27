@@ -35,6 +35,10 @@ interface Event {
   doctorSpecialty?: string;
   doctorHospital?: string;
   doctorNPI?: string;
+  createdAt?: any; // Firebase Timestamp
+  type?: string;
+  status?: string;
+  taskCategory?: string;
 }
 
 type CalendarScreenRouteProp = RouteProp<{
@@ -53,49 +57,49 @@ const TASK_CATEGORIES = [
   {
     id: 'exercise',
     title: 'Exercise',
-    icon: 'fitness',
+    icon: 'fitness-outline',
     color: '#4CAF50',
     description: 'Workout, yoga, or any physical activity'
   },
   {
     id: 'medicine',
     title: 'Medicine',
-    icon: 'medical-services',
+    icon: 'medical-outline',
     color: '#2196F3',
     description: 'Medications and supplements'
   },
   {
     id: 'appointment',
     title: 'Appointment',
-    icon: 'event',
+    icon: 'calendar-outline',
     color: '#9C27B0',
     description: 'General appointments and meetings'
   },
   {
     id: 'meal',
     title: 'Meal Planning',
-    icon: 'restaurant',
+    icon: 'restaurant-outline',
     color: '#FF9800',
     description: 'Meals, diet, and nutrition'
   },
   {
     id: 'therapy',
     title: 'Therapy',
-    icon: 'psychology',
+    icon: 'heart-outline',
     color: '#E91E63',
     description: 'Mental health and therapy sessions'
   },
   {
     id: 'lab',
     title: 'Lab Test',
-    icon: 'science',
+    icon: 'flask-outline',
     color: '#00BCD4',
     description: 'Laboratory tests and diagnostics'
   },
   {
     id: 'other',
     title: 'Other',
-    icon: 'more-horiz',
+    icon: 'ellipsis-horizontal-outline',
     color: '#607D8B',
     description: 'Other health-related tasks'
   }
@@ -289,40 +293,45 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
     setShowCategoryModal(false);
   };
 
-  const handleAddEvent = async (timeSlot: string, taskCategory: typeof TASK_CATEGORIES[0]) => {
-    if (!timeSlot) {
-      Alert.alert('Error', 'Please select a time slot');
-      return;
-    }
-
-    if (!selectedDate) {
-      Alert.alert('Error', 'Please select a date');
-      return;
-    }
-
-    if (!currentUser?.uid) {
-      Alert.alert('Error', 'Please sign in to schedule tasks');
-      return;
-    }
-
+  const handleAddEvent = async (timeSlot: string, category: typeof TASK_CATEGORIES[0]) => {
     try {
-      const formattedTimeSlot = timeSlot.replace(/^(\d):/, '0$1:');
+      if (!currentUser) {
+        Alert.alert('Error', 'You must be logged in to add events');
+        return;
+      }
 
-      const eventData = {
-        title: `${taskCategory.title} at ${formattedTimeSlot}`,
+      if (!timeSlot) {
+        Alert.alert('Error', 'Please select a time slot');
+        return;
+      }
+
+      const formattedTimeSlot = timeSlot.replace(/^(\d):/, '0$1:');
+      const eventData: Partial<Event> = {
+        title: `${category.title} at ${formattedTimeSlot}`,
         description: eventDescription || `Scheduled for ${formatDateForDisplay(selectedDate)}`,
         date: selectedDate,
         timeSlot: formattedTimeSlot,
         userId: currentUser.uid,
         createdAt: serverTimestamp(),
         type: 'calendar_event',
-        category: 'events',
-        taskType: taskCategory.id,
-        taskCategory: taskCategory.title
+        // Only set category as upcoming_appointments if it's a doctor appointment
+        category: (category.id === 'appointment' && selectedDoctor) ? 'upcoming_appointments' : 'events',
+        taskType: category.id,
+        taskCategory: category.title,
+        status: 'pending'
       };
 
-      const eventRef = collection(firestore, 'events');
-      await addDoc(eventRef, eventData);
+      // If this is a doctor appointment and we have selected doctor info
+      if (category.id === 'appointment' && selectedDoctor) {
+        eventData.doctorId = selectedDoctor.id;
+        eventData.doctorName = selectedDoctor.name;
+        eventData.doctorSpecialty = selectedDoctor.specialty;
+        eventData.doctorHospital = selectedDoctor.hospital;
+        eventData.doctorNPI = selectedDoctor.npi;
+      }
+
+      const eventsRef = collection(firestore, 'events');
+      await addDoc(eventsRef, eventData);
       
       setModalVisible(false);
       setShowTimeSlots(false);
@@ -335,7 +344,10 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
       
       await fetchEvents();
       
-      Alert.alert('Success', `${taskCategory.title} task added successfully`);
+      const successMessage = category.id === 'appointment' 
+        ? (selectedDoctor ? 'Doctor appointment' : 'Appointment task')
+        : `${category.title} task`;
+      Alert.alert('Success', `${successMessage} added successfully`);
     } catch (error) {
       console.error('Error adding task:', error);
       Alert.alert('Error', 'Failed to schedule task. Please try again.');
@@ -434,59 +446,74 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
     );
   };
 
+  const getEventColor = (taskType: string): string => {
+    const colorMap: { [key: string]: string } = {
+      medicine: '#2196F3',
+      appointment: '#9C27B0',
+      therapy: '#E91E63',
+      lab: '#00BCD4',
+      exercise: '#4CAF50',
+      meal: '#FF9800',
+      other: '#607D8B'
+    };
+    return colorMap[taskType] || '#607D8B';
+  };
+
   const renderEventItem = (event: Event) => (
-    <View key={event.id} style={styles.eventItem}>
-      <View style={styles.eventHeader}>
-        <View style={styles.eventTitleContainer}>
-          {event.taskType === 'medicine' && (
-            <Icon name="medical-services" size={20} color="#2196F3" style={styles.eventIcon} />
-          )}
-          {event.taskType === 'appointment' && (
-            <Icon name="event" size={20} color="#9C27B0" style={styles.eventIcon} />
-          )}
-          {event.taskType === 'therapy' && (
-            <Icon name="psychology" size={20} color="#E91E63" style={styles.eventIcon} />
-          )}
-          {event.taskType === 'lab' && (
-            <Icon name="science" size={20} color="#00BCD4" style={styles.eventIcon} />
-          )}
-          {event.taskType === 'exercise' && (
-            <Icon name="fitness" size={20} color="#4CAF50" style={styles.eventIcon} />
-          )}
-          {event.taskType === 'meal' && (
-            <Icon name="restaurant" size={20} color="#FF9800" style={styles.eventIcon} />
-          )}
-          {event.taskType === 'other' && (
-            <Icon name="more-horiz" size={20} color="#607D8B" style={styles.eventIcon} />
-          )}
-          <Text style={styles.eventTitle}>{event.title}</Text>
+    <View key={event.id} style={styles.eventCard}>
+      <View style={styles.timeContainer}>
+        <Text style={styles.appointmentTime}>{event.timeSlot}</Text>
+        <View style={[styles.timeIndicator, { backgroundColor: getEventColor(event.taskType || '') }]} />
+      </View>
+      <View style={styles.eventDetails}>
+        <View style={styles.eventHeader}>
+          <View style={styles.eventTitleContainer}>
+            {event.taskType === 'medicine' && (
+              <Icon name="medical-outline" size={20} color="#2196F3" style={styles.eventIcon} />
+            )}
+            {event.taskType === 'appointment' && (
+              <Icon name="calendar-outline" size={20} color="#9C27B0" style={styles.eventIcon} />
+            )}
+            {event.taskType === 'therapy' && (
+              <Icon name="heart-outline" size={20} color="#E91E63" style={styles.eventIcon} />
+            )}
+            {event.taskType === 'lab' && (
+              <Icon name="flask-outline" size={20} color="#00BCD4" style={styles.eventIcon} />
+            )}
+            {event.taskType === 'exercise' && (
+              <Icon name="fitness-outline" size={20} color="#4CAF50" style={styles.eventIcon} />
+            )}
+            {event.taskType === 'meal' && (
+              <Icon name="restaurant-outline" size={20} color="#FF9800" style={styles.eventIcon} />
+            )}
+            {event.taskType === 'other' && (
+              <Icon name="ellipsis-horizontal-outline" size={20} color="#607D8B" style={styles.eventIcon} />
+            )}
+            <Text style={styles.eventTitle}>{event.title}</Text>
+          </View>
+          <View style={styles.eventActions}>
+            <TouchableOpacity
+              onPress={() => handleDeleteEvent(event.id, event.title)}
+              style={[styles.actionButton, styles.deleteButton]}
+            >
+              <Icon name="trash-outline" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.eventActions}>
-          <TouchableOpacity
-            onPress={() => handleDeleteEvent(event.id, event.title)}
-            style={[styles.actionButton, styles.deleteButton]}
-          >
-            <Icon name="trash-outline" size={20} color="#fff" />
-          </TouchableOpacity>
+        <Text style={styles.eventDescription}>{event.description}</Text>
+        <View style={styles.eventMetadata}>
+          <View style={styles.metadataItem}>
+            <Icon name="time-outline" size={16} color="#666" />
+            <Text style={styles.metadataText}>{event.timeSlot}</Text>
+          </View>
+          <View style={styles.metadataItem}>
+            <Icon name="calendar-outline" size={16} color="#666" />
+            <Text style={styles.metadataText}>
+              {format(new Date(event.date + 'T00:00:00'), 'MMM d, yyyy')}
+            </Text>
+          </View>
         </View>
       </View>
-      <Text style={styles.eventTimeSlot}>{event.timeSlot}</Text>
-      <Text style={styles.eventDescription}>{event.description}</Text>
-      {event.doctorName && (
-        <View style={styles.doctorInfo}>
-          <Text style={styles.doctorName}>
-            <Icon name="medical" size={14} color="#0066FF" /> {event.doctorName}
-          </Text>
-          {event.doctorSpecialty && (
-            <Text style={styles.doctorSpecialty}>{event.doctorSpecialty}</Text>
-          )}
-          {event.doctorHospital && (
-            <Text style={styles.doctorHospital}>
-              <Icon name="business" size={14} color="#7f8c8d" /> {event.doctorHospital}
-            </Text>
-          )}
-        </View>
-      )}
     </View>
   );
 
@@ -570,7 +597,7 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
                       </Text>
                       {selectedDoctor.hospital && (
                         <Text style={styles.doctorHospital}>
-                          <Icon name="business" size={14} color="#7f8c8d" /> {selectedDoctor.hospital}
+                          <Icon name="business-outline" size={14} color="#7f8c8d" /> {selectedDoctor.hospital}
                         </Text>
                       )}
                     </View>
@@ -643,7 +670,10 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
                         styles.categoryItem,
                         selectedCategory === category.id && styles.selectedCategoryItem
                       ]}
-                      onPress={() => setSelectedCategory(category.id)}
+                      onPress={() => {
+                        setSelectedCategory(category.id);
+                        handleAddEvent(selectedTimeSlot || 'All Day', category);
+                      }}
                     >
                       <View style={[styles.categoryIcon, { backgroundColor: category.color }]}>
                         <Icon name={category.icon} size={24} color="#FFFFFF" />
@@ -828,11 +858,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  eventItem: {
+  eventCard: {
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  appointmentTime: {
+    fontSize: 14,
+    color: '#50cebb',
+    fontWeight: '500',
+  },
+  timeIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginLeft: 8,
+  },
+  eventDetails: {
+    flex: 1,
   },
   eventHeader: {
     flexDirection: 'row',
@@ -868,15 +917,24 @@ const styles = StyleSheet.create({
   deleteButton: {
     backgroundColor: '#ff6b6b',
   },
-  eventTimeSlot: {
-    fontSize: 14,
-    color: '#50cebb',
-    marginBottom: 4,
-  },
   eventDescription: {
     fontSize: 14,
     color: '#666',
     marginBottom: 8,
+  },
+  eventMetadata: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  metadataItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  metadataText: {
+    fontSize: 14,
+    color: '#666',
   },
   doctorInfo: {
     backgroundColor: '#f0f5ff',

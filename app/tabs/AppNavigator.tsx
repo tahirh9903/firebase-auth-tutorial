@@ -2,8 +2,8 @@ import React from 'react';
 import { createBottomTabNavigator, BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { View, Platform } from 'react-native';
 import { User } from '@firebase/auth';
-import { Ionicons } from '@expo/vector-icons'; // Import icons from a library like Expo Icons
-import HomeScreen from './HomeScreen'; // Import the HomeScreen
+import { Ionicons } from '@expo/vector-icons';
+import HomeScreen from './HomeScreen';
 import ProfileStack from './ProfileStack';
 import ChatScreen from './ChatScreen';
 import CalendarScreen from './CalendarScreen';
@@ -32,7 +32,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
     <DismissKeyboard>
       <View style={{ flex: 1 }}>
         <Tab.Navigator
-          screenOptions={({ route }) => ({
+          screenOptions={({ route }: { route: { name: keyof RootTabParamList } }) => ({
             tabBarIcon: ({ focused, color, size }) => {
               let iconName: keyof typeof Ionicons.glyphMap;
 
@@ -50,32 +50,64 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
                 iconName = 'home';
               }
 
-              return <Ionicons name={iconName} size={24} color={focused ? '#000000' : '#FFFFFF'} />;
+              return (
+                <View style={{
+                  backgroundColor: focused ? '#FFFFFF30' : 'transparent',
+                  padding: 8,
+                  borderRadius: 12,
+                  width: 36,
+                  height: 36,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: 2,
+                }}>
+                  <Ionicons 
+                    name={iconName} 
+                    size={20} 
+                    color={focused ? '#FFFFFF' : '#FFFFFF90'} 
+                    style={{
+                      opacity: focused ? 1 : 0.9,
+                    }}
+                  />
+                </View>
+              );
             },
-            tabBarShowLabel: false,
-            tabBarActiveTintColor: '#000000',
-            tabBarInactiveTintColor: '#FFFFFF',
+            tabBarShowLabel: true,
+            tabBarActiveTintColor: '#FFFFFF',
+            tabBarInactiveTintColor: '#FFFFFF90',
             tabBarStyle: {
-              backgroundColor: '#335FF6',
+              backgroundColor: '#2C56F5',
               borderTopWidth: 0,
-              borderRadius: 50,
-              height: 60,
+              borderRadius: 20,
+              height: 70,
               position: 'absolute',
-              bottom: Platform.OS === 'ios' ? 20 : 10,
-              left: 20,
-              right: 20,
-              elevation: 5,
+              bottom: Platform.OS === 'ios' ? 40 : 20,
+              left: 30,
+              right: 30,
+              elevation: 8,
               shadowColor: '#000',
               shadowOffset: {
                 width: 0,
-                height: 2,
+                height: 4,
               },
-              shadowOpacity: 0.25,
-              shadowRadius: 3.84,
+              shadowOpacity: 0.3,
+              shadowRadius: 4,
+              paddingHorizontal: 10,
+              paddingBottom: 8,
+              paddingTop: 8,
+              borderWidth: 1,
+              borderColor: '#4364F720',
             },
             tabBarItemStyle: {
-              height: 60,
-              padding: 10,
+              height: 54,
+              paddingVertical: 4,
+              marginHorizontal: 1,
+            },
+            tabBarLabelStyle: {
+              fontSize: 10,
+              fontWeight: '600',
+              marginTop: 2,
+              letterSpacing: 0.2,
             },
             headerShown: false,
           })}
@@ -83,7 +115,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
           <Tab.Screen
             name="Home"
             options={{
-              tabBarLabel: 'Home', // Label for the tab
+              tabBarLabel: 'Home',
             }}
           >
             {() => <HomeScreen user={user} />}
@@ -99,7 +131,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
             name="Chat"
             component={ChatScreen}
             options={{
-              tabBarLabel: 'Chat', // Label for the tab
+              tabBarLabel: 'Chat',
             }}
           />
           <Tab.Screen
@@ -122,7 +154,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
             name="Calendar"
             component={CalendarScreen}
             options={{
-              tabBarLabel: 'Calendar', // Label for the tab
+              tabBarLabel: 'Calendar',
             }}
           />
         </Tab.Navigator>

@@ -108,10 +108,8 @@ const EditProfileScreen: React.FC<EditProfileScreenProps> = ({ userId, onBack })
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity style={styles.settingsButton}>
-          <Icon name="settings" size={24} color="#0066FF" />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Edit Profile</Text>
+        <View style={styles.backButton} />
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContent}>
@@ -197,18 +195,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 20,
-    paddingTop: 40,
+    paddingTop: Platform.OS === 'ios' ? 60 : 20,
+    backgroundColor: '#FFFFFF',
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#0066FF',
-  },
-  settingsButton: {
-    padding: 8,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c3e50',
   },
   scrollView: {
     flex: 1,

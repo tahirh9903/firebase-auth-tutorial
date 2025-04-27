@@ -14,6 +14,7 @@ import {
   Alert,
   Modal,
   TouchableWithoutFeedback,
+  ListRenderItem,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation } from '@react-navigation/native';
@@ -23,6 +24,7 @@ import { db } from '../firebaseConfig';
 import { Calendar } from 'react-native-calendars';
 import { format } from 'date-fns';
 import { getAuth } from 'firebase/auth';
+import PrescriptionServices from '../components/PrescriptionServices';
 
 interface Doctor {
   id: string;
@@ -34,6 +36,18 @@ interface Doctor {
   phoneNumber?: string;
   npi: string;
 }
+
+interface Pharmacy {
+  id: string;
+  name: string;
+  address: string;
+  phoneNumber?: string;
+  hours?: string;
+  npi: string;
+  type: string;
+}
+
+type SearchResult = Doctor | Pharmacy;
 
 const specialties = [
   'Primary Care',
@@ -72,552 +86,6 @@ const specialtyToTaxonomy: { [key: string]: string } = {
   'Urology': '208800000X'
 };
 
-const DoctorsScreen = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const [zipCode, setZipCode] = useState('');
-  const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
-  const bottomSheetRef = useRef<any>(null);
-  const auth = getAuth();
-  const [showContactModal, setShowContactModal] = useState(false);
-  const [selectedDoctorForContact, setSelectedDoctorForContact] = useState<Doctor | null>(null);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
-
-  const searchDoctors = async () => {
-    if (zipCode.length !== 5) {
-      setDoctors([]); // Clear results if zipcode is invalid
-      return;
-    }
-
-    setIsSearching(true);
-    setError(null);
-
-    try {
-      const params = new URLSearchParams({
-        postal_code: zipCode,
-        limit: '50',
-        version: '2.1',
-      });
-
-      if (selectedSpecialty) {
-        params.append('taxonomy_description', selectedSpecialty);
-        const taxonomyCode = specialtyToTaxonomy[selectedSpecialty];
-        if (taxonomyCode) {
-          params.append('taxonomy_code', taxonomyCode);
-        }
-      }
-
-      const response = await fetch(`https://npiregistry.cms.hhs.gov/api/?${params.toString()}`);
-      const data = await response.json();
-
-      if (data.result_count === 0) {
-        setDoctors([]);
-        return;
-      }
-
-      const formattedDoctors: Doctor[] = data.results.map((result: any) => ({
-        id: result.number,
-        npi: result.number,
-        name: result.basic.first_name && result.basic.last_name 
-          ? `${result.basic.first_name} ${result.basic.last_name}${result.basic.credential ? ', ' + result.basic.credential : ''}` 
-          : 'Name Not Available',
-        specialty: result.taxonomies[0]?.desc || 'Not specified',
-        subSpecialty: result.taxonomies[1]?.desc,
-        hospital: result.addresses[0]?.organization_name,
-        address: `${result.addresses[0]?.address_1}, ${result.addresses[0]?.city}, ${result.addresses[0]?.state} ${result.addresses[0]?.postal_code}`,
-        phoneNumber: result.addresses[0]?.telephone_number,
-      }));
-
-      setDoctors(formattedDoctors);
-    } catch (err) {
-      setError('Failed to fetch doctors. Please try again.');
-      console.error('Error fetching doctors:', err);
-      setDoctors([]); // Clear results on error
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  useEffect(() => {
-    if (zipCode.length === 5) {
-      searchDoctors();
-    } else if (zipCode.length === 0) {
-      // Clear the results when zipcode is empty
-      setDoctors([]);
-      setError(null);
-    }
-  }, [zipCode, selectedSpecialty]);
-
-  const handleDoctorPress = (doctor: Doctor) => {
-    navigation.navigate('Calendar', {
-      screen: 'Calendar',
-      params: {
-        selectedDoctor: {
-          id: doctor.id,
-          name: doctor.name,
-          specialty: doctor.specialty,
-          subSpecialty: doctor.subSpecialty,
-          hospital: doctor.hospital,
-          npi: doctor.npi
-        }
-      }
-    });
-  };
-
-  const handleDateSelect = (day: any) => {
-    setSelectedDate(day.dateString);
-    if (selectedDoctorForContact?.id) {
-      fetchBookedSlots(day.dateString, selectedDoctorForContact.id);
-    }
-    setSelectedTimeSlot(''); // Reset selected time slot when date changes
-  };
-
-  const handleTimeSlotSelect = (slot: string) => {
-    setSelectedTimeSlot(slot);
-  };
-
-  const handleSchedulePress = (doctor: Doctor) => {
-    setSelectedDoctorForContact(doctor);
-    setShowScheduleModal(true);
-  };
-
-  const handleScheduleAppointment = async () => {
-    if (!selectedDate || !selectedTimeSlot) {
-      Alert.alert('Error', 'Please select both date and time');
-      return;
-    }
-
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      Alert.alert('Error', 'Please sign in to schedule appointments');
-      return;
-    }
-
-    try {
-      // Create base appointment data with required fields
-      const appointmentData: any = {
-        title: `Appointment with ${selectedDoctorForContact?.name}`,
-        description: `${selectedDoctorForContact?.specialty} consultation`,
-        date: selectedDate,
-        timeSlot: selectedTimeSlot,
-        userId: currentUser.uid,
-        doctorId: selectedDoctorForContact?.id,
-        doctorName: selectedDoctorForContact?.name,
-        doctorSpecialty: selectedDoctorForContact?.specialty,
-        createdAt: serverTimestamp(),
-        category: 'upcoming_appointments',
-        type: 'doctor_appointment'
-      };
-
-      // Add optional fields only if they exist
-      if (selectedDoctorForContact?.hospital) {
-        appointmentData.doctorHospital = selectedDoctorForContact.hospital;
-      }
-      
-      if (selectedDoctorForContact?.npi) {
-        appointmentData.doctorNPI = selectedDoctorForContact.npi;
-      }
-
-      await addDoc(collection(db, 'events'), appointmentData);
-      
-      Alert.alert('Success', 'Appointment scheduled successfully');
-      setShowScheduleModal(false);
-      setSelectedDate('');
-      setSelectedTimeSlot('');
-    } catch (error) {
-      console.error('Error scheduling appointment:', error);
-      Alert.alert('Error', 'Failed to schedule appointment. Please try again.');
-    }
-  };
-
-  const fetchBookedSlots = async (selectedDate: string, doctorId: string) => {
-    try {
-      const eventsRef = collection(db, 'events');
-      const q = query(
-        eventsRef,
-        where('date', '==', selectedDate),
-        where('doctorId', '==', doctorId),
-        where('category', '==', 'upcoming_appointments')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const booked = querySnapshot.docs.map(doc => doc.data().timeSlot);
-      setBookedSlots(booked);
-    } catch (error) {
-      console.error('Error fetching booked slots:', error);
-      setBookedSlots([]);
-    }
-  };
-
-  const renderDoctorCard = ({ item }: { item: Doctor }) => {
-    // Format name and get initials
-    const formatName = (name: string, specialty: string) => {
-      if (!name || name === 'undefined' || name === 'null') {
-        const formattedSpecialty = specialty && specialty !== 'undefined' && specialty !== 'null'
-          ? specialty
-          : 'General Practice';
-        
-        // Remove common words to get cleaner specialty name
-        const cleanSpecialty = formattedSpecialty
-          .replace(/(specialist|doctor|physician|surgeon|practitioner)/gi, '')
-          .trim();
-          
-        return `Dr. ${cleanSpecialty}`;
-      }
-      return name.split(' ')
-        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-        .join(' ');
-    };
-
-    const getInitials = (name: string) => {
-      if (name === 'Name Not Available') return '?';
-    
-      if (name.startsWith('Dr.')) {
-        const specialty = name.replace('Dr.', '').trim();
-        return specialty.slice(0, 2).toUpperCase();
-      }
-    
-      return name.split(' ')
-        .map(n => n[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase();
-    };
-
-    // Format specialty with default
-    const formatSpecialty = (specialty: string) => {
-      if (!specialty || specialty === 'undefined' || specialty === 'null') {
-        return 'General Practice';
-      }
-      return specialty.split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ');
-    };
-
-    // Format address parts
-    const formatAddress = (address: string) => {
-      if (!address || address.includes('undefined') || address.includes('null')) {
-        return 'Address information not available';
-      }
-      return address.split(',')
-        .map(part => part.trim())
-        .filter(part => part && !part.includes('undefined') && !part.includes('null'))
-        .join(', ');
-    };
-
-    // Format phone number
-    const formatPhone = (phone: string | undefined) => {
-      if (!phone || phone.includes('undefined') || phone.includes('null')) {
-        return null;
-      }
-      return phone.replace(/[^\d]/g, '')
-        .replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
-    };
-
-    const displaySpecialty = formatSpecialty(item.specialty);
-    const displayName = formatName(item.name, displaySpecialty);
-    const displayAddress = formatAddress(item.address);
-    const displayPhone = formatPhone(item.phoneNumber);
-
-    return (
-      <TouchableOpacity 
-        style={styles.doctorCard}
-        onPress={() => handleDoctorPress(item)}
-      >
-        <View style={styles.imageContainer}>
-          <View style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderText}>
-              {getInitials(displayName)}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.doctorInfo}>
-          <View style={styles.headerContainer}>
-            <Text style={styles.doctorName}>{displayName}</Text>
-            <Text style={styles.doctorSpecialty}>{displaySpecialty}</Text>
-          </View>
-          {item.subSpecialty && item.subSpecialty !== 'undefined' && item.subSpecialty !== 'null' && (
-            <Text style={styles.doctorSubSpecialty}>{item.subSpecialty}</Text>
-          )}
-          {item.hospital && item.hospital !== 'undefined' && item.hospital !== 'null' && (
-            <Text style={styles.doctorHospital}>
-              <Icon name="business" size={14} color="#7f8c8d" /> {item.hospital}
-            </Text>
-          )}
-          <Text style={styles.doctorAddress}>
-            <Icon name="location-on" size={14} color="#7f8c8d" /> {displayAddress}
-          </Text>
-          {displayPhone && (
-            <Text style={styles.doctorPhone}>
-              <Icon name="phone" size={14} color="#7f8c8d" /> {displayPhone}
-            </Text>
-          )}
-          <Text style={styles.npiNumber}>
-            <Icon name="badge" size={14} color="#95a5a6" /> NPI: {item.npi}
-          </Text>
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={styles.scheduleButton}
-              onPress={() => handleSchedulePress(item)}
-            >
-              <Icon name="calendar-today" size={16} color="#FFFFFF" />
-              <Text style={styles.scheduleButtonText}> Schedule</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.contactButton}
-              onPress={() => {
-                setSelectedDoctorForContact(item);
-                setShowContactModal(true);
-              }}
-            >
-              <Icon name="phone" size={16} color="#FFFFFF" />
-              <Text style={styles.scheduleButtonText}> Contact</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  // Generate time slots from 9am to 5pm with 30-minute intervals
-  const generateTimeSlots = useCallback(() => {
-    const slots = [];
-    for (let hour = 9; hour <= 17; hour++) {
-      const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
-      const ampm = hour < 12 ? 'AM' : 'PM';
-      const timeString = `${formattedHour.toString().padStart(2, '0')}:00 ${ampm}`;
-      if (!bookedSlots.includes(timeString)) {
-        slots.push(timeString);
-      }
-      if (hour !== 17) {
-        const halfHourString = `${formattedHour.toString().padStart(2, '0')}:30 ${ampm}`;
-        if (!bookedSlots.includes(halfHourString)) {
-          slots.push(halfHourString);
-        }
-      }
-    }
-    return slots;
-  }, [bookedSlots]);
-
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Find Doctors</Text>
-        </View>
-
-        <View style={styles.searchContainer}>
-          <View style={styles.inputContainer}>
-            <Icon name="location-on" size={24} color="#666" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter ZIP Code"
-              value={zipCode}
-              onChangeText={setZipCode}
-              keyboardType="numeric"
-              maxLength={5}
-            />
-          </View>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.specialtiesContainer}
-          >
-            {specialties.map((specialty) => (
-              <TouchableOpacity
-                key={specialty}
-                style={[
-                  styles.specialtyChip,
-                  selectedSpecialty === specialty && styles.selectedSpecialtyChip,
-                ]}
-                onPress={() => setSelectedSpecialty(specialty === selectedSpecialty ? null : specialty)}
-              >
-                <Text
-                  style={[
-                    styles.specialtyText,
-                    selectedSpecialty === specialty && styles.selectedSpecialtyText,
-                  ]}
-                >
-                  {specialty}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        {isSearching ? (
-          <ActivityIndicator size="large" color="#0066FF" style={styles.loader} />
-        ) : (
-          <FlatList
-            data={doctors}
-            renderItem={renderDoctorCard}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContainer}
-            ListEmptyComponent={() => (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
-                  No doctors found in your area.{'\n'}Try a different ZIP code or specialty.
-                </Text>
-              </View>
-            )}
-          />
-        )}
-      </View>
-
-      {/* Contact Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showContactModal}
-        onRequestClose={() => setShowContactModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowContactModal(false)}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Contact Information</Text>
-                {selectedDoctorForContact && (
-                  <View style={styles.contactInfo}>
-                    <Text style={styles.doctorName}>{selectedDoctorForContact.name}</Text>
-                    <Text style={styles.doctorSpecialty}>{selectedDoctorForContact.specialty}</Text>
-                    {selectedDoctorForContact.hospital && (
-                      <Text style={styles.doctorHospital}>
-                        <Icon name="business" size={14} color="#7f8c8d" /> {selectedDoctorForContact.hospital}
-                      </Text>
-                    )}
-                    <Text style={styles.doctorAddress}>
-                      <Icon name="place" size={14} color="#7f8c8d" /> {selectedDoctorForContact.address}
-                    </Text>
-                    {selectedDoctorForContact.phoneNumber && (
-                      <TouchableOpacity 
-                        style={styles.phoneButton}
-                        onPress={() => {
-                          // You can add phone call functionality here
-                          Alert.alert('Contact', `Call ${selectedDoctorForContact.phoneNumber}?`);
-                        }}
-                      >
-                        <Icon name="phone" size={20} color="#FFFFFF" />
-                        <Text style={styles.phoneButtonText}>{selectedDoctorForContact.phoneNumber}</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={() => setShowContactModal(false)}
-                >
-                  <Text style={styles.closeButtonText}>Close</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      {/* Schedule Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showScheduleModal}
-        onRequestClose={() => setShowScheduleModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowScheduleModal(false)}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Schedule Appointment</Text>
-                {selectedDoctorForContact && (
-                  <View style={styles.doctorInfoContainer}>
-                    <Text style={styles.doctorName}>{selectedDoctorForContact.name}</Text>
-                    <Text style={styles.doctorSpecialty}>{selectedDoctorForContact.specialty}</Text>
-                    {selectedDoctorForContact.hospital && (
-                      <Text style={styles.doctorHospital}>
-                        <Icon name="business" size={14} color="#7f8c8d" /> {selectedDoctorForContact.hospital}
-                      </Text>
-                    )}
-                  </View>
-                )}
-
-                <View style={styles.calendarContainer}>
-                  <Calendar
-                    onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
-                    markedDates={{
-                      [selectedDate]: { selected: true, selectedColor: '#0066FF' }
-                    }}
-                    minDate={format(new Date(), 'yyyy-MM-dd')}
-                    theme={{
-                      todayTextColor: '#0066FF',
-                      selectedDayBackgroundColor: '#0066FF',
-                      selectedDayTextColor: '#FFFFFF'
-                    }}
-                  />
-                </View>
-
-                {selectedDate && (
-                  <ScrollView style={styles.timeSlotsContainer}>
-                    <Text style={styles.sectionTitle}>Available Times</Text>
-                    <View style={styles.timeSlotGrid}>
-                      {generateTimeSlots().length > 0 ? (
-                        generateTimeSlots().map((slot, index) => (
-                          <TouchableOpacity
-                            key={index}
-                            style={[
-                              styles.timeSlotButton,
-                              selectedTimeSlot === slot && styles.selectedTimeSlot
-                            ]}
-                            onPress={() => setSelectedTimeSlot(slot)}
-                          >
-                            <Text style={[
-                              styles.timeSlotText,
-                              selectedTimeSlot === slot && styles.selectedTimeSlotText
-                            ]}>
-                              {slot}
-                            </Text>
-                          </TouchableOpacity>
-                        ))
-                      ) : (
-                        <Text style={styles.noSlotsText}>No available time slots for this date</Text>
-                      )}
-                    </View>
-                  </ScrollView>
-                )}
-
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.confirmButton]}
-                    onPress={handleScheduleAppointment}
-                  >
-                    <Text style={styles.modalButtonText}>Confirm Appointment</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={() => setShowScheduleModal(false)}
-                  >
-                    <Text style={styles.modalButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-    </SafeAreaView>
-  );
-};
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -638,6 +106,31 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     padding: 16,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    marginBottom: 15,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    padding: 4,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#002B5B',
+  },
+  toggleButtonText: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  toggleButtonTextActive: {
+    color: '#fff',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -668,11 +161,11 @@ const styles = StyleSheet.create({
   selectedSpecialtyChip: {
     backgroundColor: '#0066FF',
   },
-  specialtyText: {
+  specialtyChipText: {
     color: '#666',
     fontSize: 14,
   },
-  selectedSpecialtyText: {
+  selectedSpecialtyChipText: {
     color: '#FFFFFF',
   },
   listContainer: {
@@ -946,6 +439,837 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '100%',
   },
+  pharmacyCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+    flexDirection: 'row',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  pharmacyImageContainer: {
+    marginRight: 15,
+  },
+  pharmacyInitialsContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pharmacyInitials: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  pharmacyInfo: {
+    flex: 1,
+  },
+  pharmacyHeaderContainer: {
+    marginBottom: 8,
+  },
+  pharmacyName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 4,
+  },
+  pharmacyType: {
+    fontSize: 16,
+    color: '#4CAF50',
+    marginBottom: 4,
+  },
+  pharmacyDetailsContainer: {
+    flex: 1,
+  },
+  pharmacyInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  pharmacyInfoText: {
+    flex: 1,
+    color: '#666',
+    fontSize: 14,
+  },
+  pharmacyNpiNumber: {
+    fontSize: 12,
+    color: '#95a5a6',
+    marginTop: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
+
+const DoctorsScreen = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const [searchMode, setSearchMode] = useState<'doctors' | 'pharmacies'>('doctors');
+  const [zipCode, setZipCode] = useState('');
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
+  const bottomSheetRef = useRef<any>(null);
+  const auth = getAuth();
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [selectedDoctorForContact, setSelectedDoctorForContact] = useState<Doctor | null>(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  
+  // New state variables for pharmacy actions
+  const [showPharmacyContactModal, setShowPharmacyContactModal] = useState(false);
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
+
+  const searchDoctors = async () => {
+    if (zipCode.length !== 5) {
+      setDoctors([]); // Clear results if zipcode is invalid
+      return;
+    }
+
+    setIsSearching(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams({
+        postal_code: zipCode,
+        limit: '50',
+        version: '2.1',
+      });
+
+      if (selectedSpecialty) {
+        params.append('taxonomy_description', selectedSpecialty);
+        const taxonomyCode = specialtyToTaxonomy[selectedSpecialty];
+        if (taxonomyCode) {
+          params.append('taxonomy_code', taxonomyCode);
+        }
+      }
+
+      const response = await fetch(`https://npiregistry.cms.hhs.gov/api/?${params.toString()}`);
+      const data = await response.json();
+
+      if (data.result_count === 0) {
+        setDoctors([]);
+        return;
+      }
+
+      const formattedDoctors: Doctor[] = data.results.map((result: any) => ({
+        id: result.number,
+        npi: result.number,
+        name: result.basic.first_name && result.basic.last_name 
+          ? `${result.basic.first_name} ${result.basic.last_name}${result.basic.credential ? ', ' + result.basic.credential : ''}` 
+          : 'Name Not Available',
+        specialty: result.taxonomies[0]?.desc || 'Not specified',
+        subSpecialty: result.taxonomies[1]?.desc,
+        hospital: result.addresses[0]?.organization_name,
+        address: `${result.addresses[0]?.address_1}, ${result.addresses[0]?.city}, ${result.addresses[0]?.state} ${result.addresses[0]?.postal_code}`,
+        phoneNumber: result.addresses[0]?.telephone_number,
+      }));
+
+      setDoctors(formattedDoctors);
+    } catch (err) {
+      setError('Failed to fetch doctors. Please try again.');
+      console.error('Error fetching doctors:', err);
+      setDoctors([]); // Clear results on error
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const searchPharmacies = async () => {
+    if (zipCode.length !== 5) {
+      setPharmacies([]);
+      return;
+    }
+
+    setIsSearching(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams({
+        postal_code: zipCode,
+        limit: '50',
+        version: '2.1',
+        taxonomy_description: 'Pharmacy',
+        taxonomy_code: '333600000X',
+      });
+
+      const response = await fetch(`https://npiregistry.cms.hhs.gov/api/?${params.toString()}`);
+      const data = await response.json();
+
+      if (!data || !data.results || !Array.isArray(data.results) || data.results.length === 0) {
+        setPharmacies([]);
+        return;
+      }
+
+      const formattedPharmacies: Pharmacy[] = data.results
+        .filter((result: any) => result && result.addresses && result.addresses[0])
+        .map((result: any) => ({
+          id: result.number || '',
+          npi: result.number || '',
+          name: result.addresses[0]?.organization_name || 
+                result.basic?.organization_name || 
+                'Pharmacy Name Not Available',
+          address: result.addresses[0]?.address_1 && result.addresses[0]?.city && result.addresses[0]?.state
+            ? `${result.addresses[0].address_1}, ${result.addresses[0].city}, ${result.addresses[0].state} ${result.addresses[0].postal_code || ''}`
+            : 'Address Not Available',
+          phoneNumber: result.addresses[0]?.telephone_number || null,
+          type: result.addresses[0]?.organization_name?.toLowerCase().includes('24') ? '24-Hour Pharmacy' :
+                result.addresses[0]?.organization_name?.toLowerCase().includes('hospital') ? 'Hospital Pharmacy' :
+                'Retail Pharmacy'
+        }));
+
+      setPharmacies(formattedPharmacies);
+    } catch (err) {
+      console.error('Error fetching pharmacies:', err);
+      setError('Failed to fetch pharmacies. Please try again.');
+      setPharmacies([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (zipCode.length === 5) {
+      if (searchMode === 'doctors') {
+        searchDoctors();
+      } else {
+        searchPharmacies();
+      }
+    } else if (zipCode.length === 0) {
+      setDoctors([]);
+      setPharmacies([]);
+      setError(null);
+    }
+  }, [zipCode, selectedSpecialty, searchMode]);
+
+  const handleDoctorPress = (doctor: Doctor) => {
+    navigation.navigate('Calendar', {
+      screen: 'Calendar',
+      params: {
+        selectedDoctor: {
+          id: doctor.id,
+          name: doctor.name,
+          specialty: doctor.specialty,
+          subSpecialty: doctor.subSpecialty,
+          hospital: doctor.hospital,
+          npi: doctor.npi
+        }
+      }
+    });
+  };
+
+  const handleDateSelect = (day: any) => {
+    setSelectedDate(day.dateString);
+    if (selectedDoctorForContact?.id) {
+      fetchBookedSlots(day.dateString, selectedDoctorForContact.id);
+    }
+    setSelectedTimeSlot(''); // Reset selected time slot when date changes
+  };
+
+  const handleTimeSlotSelect = (slot: string) => {
+    setSelectedTimeSlot(slot);
+  };
+
+  const handleSchedulePress = (doctor: Doctor) => {
+    setSelectedDoctorForContact(doctor);
+    setShowScheduleModal(true);
+  };
+
+  const handleScheduleAppointment = async () => {
+    if (!selectedDate || !selectedTimeSlot) {
+      Alert.alert('Error', 'Please select both date and time');
+      return;
+    }
+
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      Alert.alert('Error', 'Please sign in to schedule appointments');
+      return;
+    }
+
+    try {
+      // Create base appointment data with required fields
+      const appointmentData: any = {
+        title: `Appointment with ${selectedDoctorForContact?.name}`,
+        description: `${selectedDoctorForContact?.specialty} consultation`,
+        date: selectedDate,
+        timeSlot: selectedTimeSlot,
+        userId: currentUser.uid,
+        doctorId: selectedDoctorForContact?.id,
+        doctorName: selectedDoctorForContact?.name,
+        doctorSpecialty: selectedDoctorForContact?.specialty,
+        createdAt: serverTimestamp(),
+        category: 'upcoming_appointments',
+        type: 'doctor_appointment'
+      };
+
+      // Add optional fields only if they exist
+      if (selectedDoctorForContact?.hospital) {
+        appointmentData.doctorHospital = selectedDoctorForContact.hospital;
+      }
+      
+      if (selectedDoctorForContact?.npi) {
+        appointmentData.doctorNPI = selectedDoctorForContact.npi;
+      }
+
+      await addDoc(collection(db, 'events'), appointmentData);
+      
+      Alert.alert('Success', 'Appointment scheduled successfully');
+      setShowScheduleModal(false);
+      setSelectedDate('');
+      setSelectedTimeSlot('');
+    } catch (error) {
+      console.error('Error scheduling appointment:', error);
+      Alert.alert('Error', 'Failed to schedule appointment. Please try again.');
+    }
+  };
+
+  const fetchBookedSlots = async (selectedDate: string, doctorId: string) => {
+    try {
+      const eventsRef = collection(db, 'events');
+      const q = query(
+        eventsRef,
+        where('date', '==', selectedDate),
+        where('doctorId', '==', doctorId),
+        where('category', '==', 'upcoming_appointments')
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const booked = querySnapshot.docs.map(doc => doc.data().timeSlot);
+      setBookedSlots(booked);
+    } catch (error) {
+      console.error('Error fetching booked slots:', error);
+      setBookedSlots([]);
+    }
+  };
+
+  const formatAddress = (address: string) => {
+    return address.length > 40 ? address.substring(0, 37) + '...' : address;
+  };
+
+  const formatPhone = (phone: string | undefined) => {
+    if (!phone) return 'N/A';
+    return phone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3');
+  };
+
+  const renderItem: ListRenderItem<SearchResult> = ({ item }) => {
+    if ('specialty' in item) {
+      return renderDoctorCard({ item: item as Doctor });
+    } else {
+      return renderPharmacyCard({ item: item as Pharmacy });
+    }
+  };
+
+  const renderDoctorCard = ({ item }: { item: Doctor }) => {
+    // Format name and get initials
+    const formatName = (name: string, specialty: string) => {
+      if (!name || name === 'undefined' || name === 'null') {
+        const formattedSpecialty = specialty && specialty !== 'undefined' && specialty !== 'null'
+          ? specialty
+          : 'General Practice';
+        
+        // Remove common words to get cleaner specialty name
+        const cleanSpecialty = formattedSpecialty
+          .replace(/(specialist|doctor|physician|surgeon|practitioner)/gi, '')
+          .trim();
+          
+        return `Dr. ${cleanSpecialty}`;
+      }
+      return name.split(' ')
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
+    };
+
+    const getInitials = (name: string) => {
+      if (name === 'Name Not Available') return '?';
+    
+      if (name.startsWith('Dr.')) {
+        const specialty = name.replace('Dr.', '').trim();
+        return specialty.slice(0, 2).toUpperCase();
+      }
+    
+      return name.split(' ')
+        .map(n => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+    };
+
+    // Format specialty with default
+    const formatSpecialty = (specialty: string) => {
+      if (!specialty || specialty === 'undefined' || specialty === 'null') {
+        return 'General Practice';
+      }
+      return specialty.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    };
+
+    // Format address parts
+    const displayAddress = formatAddress(item.address);
+
+    // Format phone number
+    const displayPhone = formatPhone(item.phoneNumber);
+
+    const displaySpecialty = formatSpecialty(item.specialty);
+    const displayName = formatName(item.name, displaySpecialty);
+
+    return (
+      <TouchableOpacity 
+        style={styles.doctorCard}
+        onPress={() => handleDoctorPress(item)}
+      >
+        <View style={styles.imageContainer}>
+          <View style={styles.imagePlaceholder}>
+            <Text style={styles.imagePlaceholderText}>
+              {getInitials(displayName)}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.doctorInfo}>
+          <View style={styles.headerContainer}>
+            <Text style={styles.doctorName}>{displayName}</Text>
+            <Text style={styles.doctorSpecialty}>{displaySpecialty}</Text>
+          </View>
+          {item.subSpecialty && item.subSpecialty !== 'undefined' && item.subSpecialty !== 'null' && (
+            <Text style={styles.doctorSubSpecialty}>{item.subSpecialty}</Text>
+          )}
+          {item.hospital && item.hospital !== 'undefined' && item.hospital !== 'null' && (
+            <Text style={styles.doctorHospital}>
+              <Icon name="business" size={14} color="#7f8c8d" /> {item.hospital}
+            </Text>
+          )}
+          <Text style={styles.doctorAddress}>
+            <Icon name="location-on" size={14} color="#7f8c8d" /> {displayAddress}
+          </Text>
+          {displayPhone && (
+            <Text style={styles.doctorPhone}>
+              <Icon name="phone" size={14} color="#7f8c8d" /> {displayPhone}
+            </Text>
+          )}
+          <Text style={styles.npiNumber}>
+            <Icon name="badge" size={14} color="#95a5a6" /> NPI: {item.npi}
+          </Text>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity 
+              style={styles.scheduleButton}
+              onPress={() => handleSchedulePress(item)}
+            >
+              <Icon name="calendar-today" size={16} color="#FFFFFF" />
+              <Text style={styles.scheduleButtonText}> Schedule</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.contactButton}
+              onPress={() => {
+                setSelectedDoctorForContact(item);
+                setShowContactModal(true);
+              }}
+            >
+              <Icon name="phone" size={16} color="#FFFFFF" />
+              <Text style={styles.scheduleButtonText}> Contact</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderPharmacyCard = ({ item }: { item: Pharmacy }) => {
+    return (
+      <TouchableOpacity style={styles.pharmacyCard}>
+        <View style={styles.pharmacyImageContainer}>
+          <View style={styles.pharmacyInitialsContainer}>
+            <Text style={styles.pharmacyInitials}>
+              {item.name.substring(0, 2).toUpperCase()}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.pharmacyInfo}>
+          <View style={styles.pharmacyHeaderContainer}>
+            <Text style={styles.pharmacyName}>{item.name}</Text>
+            <Text style={styles.pharmacyType}>{item.type}</Text>
+          </View>
+          <View style={styles.pharmacyDetailsContainer}>
+            <View style={styles.pharmacyInfoRow}>
+              <Icon name="location-on" size={16} color="#666" />
+              <Text style={styles.pharmacyInfoText}>{formatAddress(item.address)}</Text>
+            </View>
+            {item.phoneNumber && (
+              <View style={styles.pharmacyInfoRow}>
+                <Icon name="phone" size={16} color="#666" />
+                <Text style={styles.pharmacyInfoText}>{formatPhone(item.phoneNumber)}</Text>
+              </View>
+            )}
+            <Text style={styles.pharmacyNpiNumber}>
+              <Icon name="badge" size={14} color="#95a5a6" /> NPI: {item.npi}
+            </Text>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity 
+                style={[styles.scheduleButton, { backgroundColor: '#4CAF50' }]}
+                onPress={() => {
+                  setSelectedPharmacy(item);
+                  setShowPrescriptionModal(true);
+                }}
+              >
+                <Icon name="medication" size={16} color="#FFFFFF" />
+                <Text style={styles.scheduleButtonText}> Prescription</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.contactButton}
+                onPress={() => {
+                  setSelectedPharmacy(item);
+                  setShowPharmacyContactModal(true);
+                }}
+              >
+                <Icon name="phone" size={16} color="#FFFFFF" />
+                <Text style={styles.scheduleButtonText}> Contact</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Generate time slots from 9am to 5pm with 30-minute intervals
+  const generateTimeSlots = useCallback(() => {
+    const slots = [];
+    for (let hour = 9; hour <= 17; hour++) {
+      const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
+      const ampm = hour < 12 ? 'AM' : 'PM';
+      const timeString = `${formattedHour.toString().padStart(2, '0')}:00 ${ampm}`;
+      if (!bookedSlots.includes(timeString)) {
+        slots.push(timeString);
+      }
+      if (hour !== 17) {
+        const halfHourString = `${formattedHour.toString().padStart(2, '0')}:30 ${ampm}`;
+        if (!bookedSlots.includes(halfHourString)) {
+          slots.push(halfHourString);
+        }
+      }
+    }
+    return slots;
+  }, [bookedSlots]);
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Healthcare Services</Text>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity 
+              style={[
+                styles.toggleButton, 
+                searchMode === 'doctors' && styles.toggleButtonActive
+              ]}
+              onPress={() => setSearchMode('doctors')}
+            >
+              <Text style={[
+                styles.toggleButtonText,
+                searchMode === 'doctors' && styles.toggleButtonTextActive
+              ]}>Find Doctors</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[
+                styles.toggleButton, 
+                searchMode === 'pharmacies' && styles.toggleButtonActive
+              ]}
+              onPress={() => setSearchMode('pharmacies')}
+            >
+              <Text style={[
+                styles.toggleButtonText,
+                searchMode === 'pharmacies' && styles.toggleButtonTextActive
+              ]}>Find Pharmacies</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Icon name="location-on" size={24} color="#666" />
+            <TextInput
+              style={styles.input}
+              placeholder="Enter ZIP Code"
+              value={zipCode}
+              onChangeText={setZipCode}
+              keyboardType="numeric"
+              maxLength={5}
+            />
+          </View>
+
+          {searchMode === 'doctors' && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.specialtiesContainer}
+            >
+              {specialties.map((specialty) => (
+                <TouchableOpacity
+                  key={specialty}
+                  style={[
+                    styles.specialtyChip,
+                    selectedSpecialty === specialty && styles.selectedSpecialtyChip,
+                  ]}
+                  onPress={() => setSelectedSpecialty(specialty === selectedSpecialty ? null : specialty)}
+                >
+                  <Text
+                    style={[
+                      styles.specialtyChipText,
+                      selectedSpecialty === specialty && styles.selectedSpecialtyChipText,
+                    ]}
+                  >
+                    {specialty}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        {isSearching ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#002B5B" />
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : (
+          <FlatList<SearchResult>
+            data={searchMode === 'doctors' ? doctors : pharmacies}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContainer}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  {zipCode.length === 5
+                    ? `No ${searchMode === 'doctors' ? 'doctors' : 'pharmacies'} found in this area`
+                    : `Enter a ZIP code to find ${searchMode === 'doctors' ? 'doctors' : 'pharmacies'}`}
+                </Text>
+              </View>
+            }
+          />
+        )}
+      </View>
+
+      {/* Contact Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showContactModal}
+        onRequestClose={() => setShowContactModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowContactModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Contact Information</Text>
+                {selectedDoctorForContact && (
+                  <View style={styles.contactInfo}>
+                    <Text style={styles.doctorName}>{selectedDoctorForContact.name}</Text>
+                    <Text style={styles.doctorSpecialty}>{selectedDoctorForContact.specialty}</Text>
+                    {selectedDoctorForContact.hospital && (
+                      <Text style={styles.doctorHospital}>
+                        <Icon name="business" size={14} color="#7f8c8d" /> {selectedDoctorForContact.hospital}
+                      </Text>
+                    )}
+                    <Text style={styles.doctorAddress}>
+                      <Icon name="place" size={14} color="#7f8c8d" /> {selectedDoctorForContact.address}
+                    </Text>
+                    {selectedDoctorForContact.phoneNumber && (
+                      <TouchableOpacity 
+                        style={styles.phoneButton}
+                        onPress={() => {
+                          // You can add phone call functionality here
+                          Alert.alert('Contact', `Call ${selectedDoctorForContact.phoneNumber}?`);
+                        }}
+                      >
+                        <Icon name="phone" size={20} color="#FFFFFF" />
+                        <Text style={styles.phoneButtonText}>{selectedDoctorForContact.phoneNumber}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowContactModal(false)}
+                >
+                  <Text style={styles.closeButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Schedule Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showScheduleModal}
+        onRequestClose={() => setShowScheduleModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowScheduleModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Schedule Appointment</Text>
+                {selectedDoctorForContact && (
+                  <View style={styles.doctorInfoContainer}>
+                    <Text style={styles.doctorName}>{selectedDoctorForContact.name}</Text>
+                    <Text style={styles.doctorSpecialty}>{selectedDoctorForContact.specialty}</Text>
+                    {selectedDoctorForContact.hospital && (
+                      <Text style={styles.doctorHospital}>
+                        <Icon name="business" size={14} color="#7f8c8d" /> {selectedDoctorForContact.hospital}
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                <View style={styles.calendarContainer}>
+                  <Calendar
+                    onDayPress={(day: { dateString: string }) => setSelectedDate(day.dateString)}
+                    markedDates={{
+                      [selectedDate]: { selected: true, selectedColor: '#0066FF' }
+                    }}
+                    minDate={format(new Date(), 'yyyy-MM-dd')}
+                    theme={{
+                      todayTextColor: '#0066FF',
+                      selectedDayBackgroundColor: '#0066FF',
+                      selectedDayTextColor: '#FFFFFF'
+                    }}
+                  />
+                </View>
+
+                {selectedDate && (
+                  <ScrollView style={styles.timeSlotsContainer}>
+                    <Text style={styles.sectionTitle}>Available Times</Text>
+                    <View style={styles.timeSlotGrid}>
+                      {generateTimeSlots().length > 0 ? (
+                        generateTimeSlots().map((slot, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={[
+                              styles.timeSlotButton,
+                              selectedTimeSlot === slot && styles.selectedTimeSlot
+                            ]}
+                            onPress={() => setSelectedTimeSlot(slot)}
+                          >
+                            <Text style={[
+                              styles.timeSlotText,
+                              selectedTimeSlot === slot && styles.selectedTimeSlotText
+                            ]}>
+                              {slot}
+                            </Text>
+                          </TouchableOpacity>
+                        ))
+                      ) : (
+                        <Text style={styles.noSlotsText}>No available time slots for this date</Text>
+                      )}
+                    </View>
+                  </ScrollView>
+                )}
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.confirmButton]}
+                    onPress={handleScheduleAppointment}
+                  >
+                    <Text style={styles.modalButtonText}>Confirm Appointment</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setShowScheduleModal(false)}
+                  >
+                    <Text style={styles.modalButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Pharmacy Contact Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showPharmacyContactModal}
+        onRequestClose={() => setShowPharmacyContactModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowPharmacyContactModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Pharmacy Information</Text>
+                {selectedPharmacy && (
+                  <View style={styles.contactInfo}>
+                    <Text style={styles.pharmacyName}>{selectedPharmacy.name}</Text>
+                    <Text style={[styles.pharmacyType, { marginBottom: 8 }]}>{selectedPharmacy.type}</Text>
+                    <Text style={styles.pharmacyInfoText}>
+                      <Icon name="place" size={14} color="#7f8c8d" /> {selectedPharmacy.address}
+                    </Text>
+                    {selectedPharmacy.phoneNumber && (
+                      <TouchableOpacity 
+                        style={styles.phoneButton}
+                        onPress={() => {
+                          Alert.alert('Contact', `Call ${selectedPharmacy.phoneNumber}?`);
+                        }}
+                      >
+                        <Icon name="phone" size={20} color="#FFFFFF" />
+                        <Text style={styles.phoneButtonText}>{selectedPharmacy.phoneNumber}</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowPharmacyContactModal(false)}
+                >
+                  <Text style={styles.closeButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Replace the old Prescription Modal with the new PrescriptionServices component */}
+      {selectedPharmacy && (
+        <PrescriptionServices
+          visible={showPrescriptionModal}
+          onClose={() => {
+            setShowPrescriptionModal(false);
+            setSelectedPharmacy(null);
+          }}
+          pharmacyName={selectedPharmacy.name}
+          pharmacyType={selectedPharmacy.type}
+        />
+      )}
+    </SafeAreaView>
+  );
+};
 
 export default DoctorsScreen; 
