@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 
@@ -58,9 +58,10 @@ const PasswordManagerScreen: React.FC<PasswordManagerScreenProps> = ({ onBack })
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color="#0066FF" />
+          <Icon name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Password Manager</Text>
+        <View style={styles.backButton} />
       </View>
 
       <View style={styles.content}>
@@ -155,20 +156,24 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 20,
-    paddingTop: 40,
+    paddingTop: Platform.OS === 'ios' ? 60 : 20,
+    backgroundColor: '#FFFFFF',
   },
   backButton: {
-    marginRight: 16,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#0066FF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c3e50',
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    padding: 20,
   },
   inputGroup: {
     marginBottom: 24,

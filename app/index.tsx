@@ -25,7 +25,6 @@ export default function IntroScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.appName}>MediConnect</Text>
         <Text style={styles.tagline}>Your Health, Our Priority</Text>
       </View>
 
@@ -59,21 +58,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+  logoWrapper: {
+    backgroundColor: '#FFFFFF',  // Explicit white background
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   logo: {
-    width: 180,
-    height: 180,
-    marginBottom: 24,
+    width: 250,
+    height: 250,
+    marginBottom: 16,
+    backgroundColor: 'transparent',  // Ensure transparent background
   },
   appName: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#002B5B', // MediConnect navy blue
-    marginBottom: 12,
+    // Remove this style since we're not using it anymore
   },
   tagline: {
-    fontSize: 18,
+    fontSize: 20,
     color: '#666',
     textAlign: 'center',
+    fontWeight: '500',
     marginBottom: 40,
   },
   buttonContainer: {

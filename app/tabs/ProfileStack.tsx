@@ -32,23 +32,12 @@ const ProfileStackNavigator: React.FC<ProfileStackProps> = ({
     <Stack.Navigator 
       initialRouteName="UserProfile"
       screenOptions={{
-        headerShown: true,
-        headerTitleStyle: {
-          color: '#2c3e50',
-          fontSize: 20,
-        },
-        headerTintColor: '#0066FF',
-        headerStyle: {
-          backgroundColor: '#FFFFFF',
-        },
+        headerShown: false,
         presentation: 'card'
       }}
     >
       <Stack.Screen 
         name="UserProfile"
-        options={{ 
-          headerShown: false
-        }}
       >
         {() => (
           <ProfileScreen
@@ -63,7 +52,6 @@ const ProfileStackNavigator: React.FC<ProfileStackProps> = ({
 
       <Stack.Screen 
         name="EditProfile"
-        options={{ title: 'Edit Profile' }}
       >
         {({ navigation, route }) => (
           <EditProfileScreen 
@@ -75,7 +63,6 @@ const ProfileStackNavigator: React.FC<ProfileStackProps> = ({
 
       <Stack.Screen 
         name="Settings"
-        options={{ title: 'Settings' }}
       >
         {({ navigation }) => (
           <SettingsScreen onBack={() => navigation.goBack()} />
@@ -84,7 +71,6 @@ const ProfileStackNavigator: React.FC<ProfileStackProps> = ({
 
       <Stack.Screen 
         name="PrivacyPolicy"
-        options={{ title: 'Privacy Policy' }}
       >
         {({ navigation }) => (
           <PrivacyPolicyScreen onBack={() => navigation.goBack()} />
@@ -93,13 +79,11 @@ const ProfileStackNavigator: React.FC<ProfileStackProps> = ({
 
       <Stack.Screen 
         name="PaymentMethod"
-        options={{ title: 'Payment Method' }}
         component={PaymentMethodScreen}
       />
 
       <Stack.Screen 
         name="PasswordManager"
-        options={{ title: 'Password Manager' }}
       >
         {({ navigation }) => (
           <PasswordManagerScreen onBack={() => navigation.goBack()} />
@@ -108,7 +92,6 @@ const ProfileStackNavigator: React.FC<ProfileStackProps> = ({
 
       <Stack.Screen 
         name="AddCard"
-        options={{ title: 'Add Card' }}
         component={AddCardScreen}
       />
     </Stack.Navigator>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,12 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Dispatch, SetStateAction } from 'react';
 import { useRouter } from 'expo-router';
+import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
+import { app } from './firebaseConfig';
 
 interface AuthScreenProps {
   email: string;
@@ -45,6 +48,29 @@ export default function AuthScreen({
   handleAuthentication
 }: AuthScreenProps) {
   const router = useRouter();
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('Error', 'Please enter your email address first');
+      return;
+    }
+
+    try {
+      setIsResettingPassword(true);
+      const auth = getAuth(app);
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert(
+        'Password Reset Email Sent',
+        'Please check your email for instructions to reset your password.'
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send password reset email. Please try again.');
+      console.error('Password reset error:', error);
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -114,7 +140,23 @@ export default function AuthScreen({
             secureTextEntry
           />
 
-          <TouchableOpacity style={styles.button} onPress={handleAuthentication}>
+          {isLogin && (
+            <TouchableOpacity
+              style={styles.forgotPasswordButton}
+              onPress={handleForgotPassword}
+              disabled={isResettingPassword}
+            >
+              <Text style={styles.forgotPasswordText}>
+                {isResettingPassword ? 'Sending reset email...' : 'Forgot Password?'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity 
+            style={[styles.button, isResettingPassword && styles.disabledButton]} 
+            onPress={handleAuthentication}
+            disabled={isResettingPassword}
+          >
             <Text style={styles.buttonText}>
               {isLogin ? 'Login' : 'Create Account'}
             </Text>
@@ -123,6 +165,7 @@ export default function AuthScreen({
           <TouchableOpacity
             style={styles.switchButton}
             onPress={() => setIsLogin(!isLogin)}
+            disabled={isResettingPassword}
           >
             <Text style={styles.switchButtonText}>
               {isLogin
@@ -185,6 +228,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
+  disabledButton: {
+    opacity: 0.7,
+  },
   buttonText: {
     color: '#fff',
     fontSize: 16,
@@ -197,5 +243,14 @@ const styles = StyleSheet.create({
   switchButtonText: {
     color: '#002B5B',
     fontSize: 16,
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginTop: -10,
+    marginBottom: 10,
+  },
+  forgotPasswordText: {
+    color: '#002B5B',
+    fontSize: 14,
   },
 }); 
