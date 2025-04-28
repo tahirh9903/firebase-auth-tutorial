@@ -314,11 +314,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
   };
 
   const getEventsForDate = (date: string) => {
-    // Include both regular events and task-type appointments, but exclude doctor appointments
-    return events[date]?.filter(event => 
-      event.category === 'events' || 
-      (event.taskType === 'appointment' && !event.doctorId)  // Include task appointments but exclude doctor appointments
-    ) || [];
+    if (!date) return [];
+    return events[date] || [];
+  };
+
+  const formatDateForDisplay = (dateString: string) => {
+    try {
+      // Ensure the date string is in YYYY-MM-DD format
+      if (!dateString || !dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return format(new Date(), 'MMMM d, yyyy');
+      }
+      const [year, month, day] = dateString.split('-').map(num => parseInt(num, 10));
+      const date = new Date(year, month - 1, day); // month is 0-indexed
+      if (isNaN(date.getTime())) {
+        return format(new Date(), 'MMMM d, yyyy');
+      }
+      return format(date, 'MMMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return format(new Date(), 'MMMM d, yyyy');
+    }
   };
 
   const renderEvent = (event: Event) => (
@@ -367,7 +382,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
           <View style={styles.metadataItem}>
             <Icon name="event" size={16} color="#666" />
             <Text style={styles.metadataText}>
-              {format(new Date(event.date + 'T00:00:00'), 'MMM d, yyyy')}
+              {formatDateForDisplay(event.date)}
             </Text>
           </View>
         </View>
@@ -594,7 +609,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
           <View style={styles.sectionHeader}>
             <Icon name="event" size={24} color="#333" />
             <Text style={styles.sectionTitle}>
-              Events for {format(new Date(selectedDate + 'T00:00:00'), 'MMMM d, yyyy')}
+              Events for {formatDateForDisplay(selectedDate)}
             </Text>
           </View>
           {getEventsForDate(selectedDate).length > 0 ? (
@@ -625,7 +640,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
         <View style={styles.upcomingAppointments}>
           <View style={styles.sectionHeader}>
             <Icon name="calendar-today" size={24} color="#333" />
-            <Text style={styles.sectionTitle}>Appointments for {format(new Date(selectedDate + 'T00:00:00'), 'MMMM d, yyyy')}</Text>
+            <Text style={styles.sectionTitle}>Appointments for {formatDateForDisplay(selectedDate)}</Text>
           </View>
           {upcomingAppointments.filter(apt => apt.date === selectedDate).length === 0 ? (
             <View style={styles.noAppointmentsContainer}>
@@ -869,6 +884,19 @@ const styles = StyleSheet.create({
     elevation: 5,
     transform: [{ scale: 1.05 }],
   },
+  todaySelectedText: {
+    color: '#fff',
+    fontWeight: '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  todaySelectedDot: {
+    backgroundColor: '#fff',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   dayNumber: {
     fontSize: 20,
     fontWeight: '600',
@@ -892,13 +920,6 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     fontWeight: '700',
   },
-  todaySelectedText: {
-    color: '#fff',
-    fontWeight: '700',
-    textShadowColor: 'rgba(0, 0, 0, 0.1)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
   dot: {
     width: 6,
     height: 6,
@@ -914,12 +935,6 @@ const styles = StyleSheet.create({
   },
   todayDot: {
     backgroundColor: '#2196F3',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  todaySelectedDot: {
-    backgroundColor: '#fff',
     width: 8,
     height: 8,
     borderRadius: 4,
@@ -1182,18 +1197,6 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginTop: 12,
-  },
-  todaySelected: {
-    backgroundColor: '#007AFF',
-    borderColor: '#2196F3',
-    borderWidth: 2,
-  },
-  todaySelectedText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  todaySelectedDot: {
-    backgroundColor: '#fff',
   },
 });
 
