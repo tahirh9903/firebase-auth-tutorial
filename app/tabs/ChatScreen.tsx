@@ -23,6 +23,10 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import axios from 'axios';
+import { OPENAI_API_KEY } from '@env';
+console.log('KEY:', OPENAI_API_KEY);
+
 
 interface Message {
   id: string;
@@ -180,23 +184,19 @@ const ChatScreen = () => {
     }
 
     const targetEmail = selectedChat || receiverEmail;
-    // Censor the message before sending
     const censoredMessage = censorProfanity(newMessage.trim());
 
     try {
-      // Create message data with censored text
       const messageData = {
         text: censoredMessage,
-        senderEmail: currentUser?.email || '',
+        senderEmail: currentUser.email || '',
         receiverEmail: targetEmail,
         timestamp: serverTimestamp(),
-        participants: [currentUser?.email || '', targetEmail].sort(),
+        participants: [currentUser.email || '', targetEmail].sort(),
       };
 
-      // Add message to Firestore
       const docRef = await addDoc(collection(db, 'messages'), messageData);
 
-      // Add censored message to local state immediately
       const newMessageObj: Message = {
         id: docRef.id,
         text: censoredMessage,
@@ -205,27 +205,36 @@ const ChatScreen = () => {
         timestamp: new Date(),
       };
 
-      setMessages(prevMessages => [newMessageObj, ...prevMessages]);
+      setMessages(prev => [newMessageObj, ...prev]);
 
-      // Update conversations with censored message
       const newConversation: Conversation = {
         email: targetEmail,
         lastMessage: censoredMessage,
         timestamp: new Date(),
-        unread: false
+        unread: false,
       };
 
       setConversationsState(prev => ({
         ...prev,
-        data: [newConversation, ...prev.data.filter(conv => conv.email !== targetEmail)]
+        data: [newConversation, ...prev.data.filter(conv => conv.email !== targetEmail)],
       }));
 
-      // Clear message input
       setNewMessage('');
+      if (!selectedChat) setSelectedChat(targetEmail);
 
-      // If this is a new chat, update the UI
-      if (!selectedChat) {
-        setSelectedChat(targetEmail);
+      // 👨‍⚕️ Trigger AI doctor response if chatting with the AI
+      if (targetEmail === 'doctor@ai.com') {
+        const aiReply = await callOpenAIDoctor(censoredMessage);
+
+        const aiMessageData = {
+          text: aiReply,
+          senderEmail: 'doctor@ai.com',
+          receiverEmail: currentUser.email,
+          timestamp: serverTimestamp(),
+          participants: [currentUser.email, 'doctor@ai.com'].sort(),
+        };
+
+        await addDoc(collection(db, 'messages'), aiMessageData);
       }
 
     } catch (error) {
@@ -257,7 +266,13 @@ const ChatScreen = () => {
     }
 
     try {
-      // Verify receiver email exists
+      if (receiverEmail === 'doctor@ai.com') {
+        setSelectedChat(receiverEmail);
+        hideNewChatModal();
+        return;
+      }
+
+      // Verify receiver email exists in users collection
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('email', '==', receiverEmail));
       const querySnapshot = await getDocs(q);
@@ -267,7 +282,6 @@ const ChatScreen = () => {
         return;
       }
 
-      // Start chat with this user
       setSelectedChat(receiverEmail);
       hideNewChatModal();
     } catch (error) {
@@ -326,7 +340,7 @@ const ChatScreen = () => {
             animationType="slide"
             onRequestClose={hideNewChatModal}
           >
-            <View style={styles.modalContainer}>
+            <View style={styles.modalContainer} pointerEvents="box-none">
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>New Message</Text>
                 <TextInput
@@ -336,6 +350,7 @@ const ChatScreen = () => {
                   onChangeText={setReceiverEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  editable={true}
                 />
                 <View style={styles.modalButtons}>
                   <TouchableOpacity 
@@ -397,16 +412,18 @@ const ChatScreen = () => {
           inverted
         />
 
-        <View style={styles.inputContainer}>
+        <View style={{flexDirection: 'row', padding: 10, backgroundColor: 'white', borderTopWidth: 1, borderTopColor: '#ddd', zIndex: 1}}>
           <TextInput
-            style={styles.input}
+            style={{flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 8, marginRight: 10, maxHeight: 100}}
             placeholder="Type a message..."
             value={newMessage}
             onChangeText={setNewMessage}
             multiline
+            editable={true}
+            pointerEvents="auto"
           />
-          <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage}>
-            <Text style={styles.sendButtonText}>Send</Text>
+          <TouchableOpacity style={{backgroundColor: '#50cebb', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center'}} onPress={handleSendMessage}>
+            <Text style={{color: 'white', fontWeight: 'bold'}}>Send</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -422,6 +439,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    paddingBottom: 80,
   },
   header: {
     flexDirection: 'row',
@@ -538,6 +556,7 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '90%',
     maxWidth: 400,
+    alignItems: 'center',
   },
   modalTitle: {
     fontSize: 18,
@@ -583,5 +602,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+// AI doctor reply logic
+const callOpenAIDoctor = async (userMessage: string): Promise<string> => {
+  try {
+    const response = await axios.post(
+      'http://localhost:3001/openai',
+      { message: userMessage },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    return response.data.reply;
+  } catch (error) {
+    console.error('Proxy API error:', error.response ? error.response.data : error.message || error);
+    return 'Sorry, the doctor is currently unavailable.';
+  }
+};
 
 export default ChatScreen;
