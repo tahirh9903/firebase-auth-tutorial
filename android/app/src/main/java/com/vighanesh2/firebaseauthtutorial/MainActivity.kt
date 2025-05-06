@@ -1,4 +1,4 @@
-package com.anonymous.firebaseauthtutorial
+package com.vighanesh2.firebaseauthtutorial
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
