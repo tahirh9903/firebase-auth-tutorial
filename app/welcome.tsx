@@ -5,6 +5,8 @@ import { app } from './firebaseConfig';
 import AppNavigator from './tabs/AppNavigator';
 import AuthScreen from './AuthScreen';
 import { useLocalSearchParams } from 'expo-router';
+import BiometricAuth from './components/BiometricAuth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Welcome() {
   const { mode } = useLocalSearchParams();
@@ -15,6 +17,8 @@ export default function Welcome() {
   const [phoneNumber, setPhoneNumber] = useState<string>('');
   const [user, setUser] = useState<User | null>(null);
   const [isLogin, setIsLogin] = useState<boolean>(mode !== 'signup');
+  const [biometricRequired, setBiometricRequired] = useState(false);
+  const [biometricAuthenticated, setBiometricAuthenticated] = useState(false);
 
   const auth = getAuth(app);
   const db = getFirestore(app);
@@ -46,6 +50,12 @@ export default function Welcome() {
         if (isLogin) {
           // Sign in
           await signInWithEmailAndPassword(auth, email, password);
+          // Check if biometric is enabled
+          const enabled = await AsyncStorage.getItem('biometricEnabled');
+          if (enabled === 'true') {
+            setBiometricRequired(true);
+            setBiometricAuthenticated(false);
+          }
         } else {
           // Sign up
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -63,9 +73,30 @@ export default function Welcome() {
     }
   };
 
+  // Add a function to reset all auth fields and biometric state
+  const resetAuthFields = () => {
+    setEmail('');
+    setPassword('');
+    setFirstName('');
+    setLastName('');
+    setPhoneNumber('');
+    setBiometricRequired(false);
+    setBiometricAuthenticated(false);
+    setUser(null);
+  };
+
+  if (user && biometricRequired && !biometricAuthenticated) {
+    return (
+      <BiometricAuth
+        onAuthenticate={() => setBiometricAuthenticated(true)}
+        onSkip={() => setBiometricAuthenticated(false)}
+      />
+    );
+  }
+
   return (
     <>
-      {user ? (
+      {user && (!biometricRequired || biometricAuthenticated) ? (
         // If the user is authenticated, show the tab navigation
         <AppNavigator
           user={user}
@@ -88,7 +119,10 @@ export default function Welcome() {
           phoneNumber={phoneNumber}
           setPhoneNumber={setPhoneNumber}
           isLogin={isLogin}
-          setIsLogin={setIsLogin}
+          setIsLogin={(val) => {
+            setIsLogin(val);
+            resetAuthFields();
+          }}
           handleAuthentication={handleAuthentication}
         />
       )}
