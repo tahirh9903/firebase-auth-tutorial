@@ -56,11 +56,11 @@ export default function IntroScreen() {
             transform: [{ scale: logoSize }]
           }
         ]}>
-          <Image
-            source={require('../assets/images/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+        <Image
+          source={require('../assets/images/logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         </Animated.View>
         <Text style={styles.tagline}>Your Health, Our Priority</Text>
       </View>

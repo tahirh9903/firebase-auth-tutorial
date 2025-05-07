@@ -536,29 +536,29 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
     <SafeAreaView style={[styles.container, { backgroundColor }]}>
       <View style={[styles.header, { backgroundColor: headerBackgroundColor, borderBottomColor: borderColor }]}>
         <View style={styles.headerLeft}>
-          <Image
+                <Image
             source={
               user?.photoURL
                 ? { uri: user.photoURL }
                 : require('../../assets/images/default-avatar.png')
             }
-            style={styles.profileImage}
+                  style={styles.profileImage}
             onError={() => setImageError(true)}
           />
           <View>
             <Text style={[styles.greeting, { color: secondaryTextColor }]}>Hello,</Text>
             <Text style={[styles.userName, { color: textColor }]}>{user?.displayName || 'User'}</Text>
-          </View>
-        </View>
+              </View>
+              </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity 
+              <TouchableOpacity 
             style={[styles.iconButton, { backgroundColor: isDarkMode ? '#333' : '#F5F5F5' }]}
             onPress={() => setShowHealthTips(true)}
-          >
+              >
             <Icon name="favorite" size={24} color={isDarkMode ? '#fff' : '#002B5B'} />
-          </TouchableOpacity>
-        </View>
-      </View>
+              </TouchableOpacity>
+            </View>
+          </View>
 
       <ScrollView 
         style={[styles.scrollView, { backgroundColor }]}
