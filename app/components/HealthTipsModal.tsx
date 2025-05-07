@@ -188,6 +188,9 @@ export default function HealthTipsModal({ visible, onClose }: HealthTipsModalPro
             ))}
           </ScrollView>
 
+          {/* Divider line below category bar */}
+          <View style={styles.divider} />
+
           <ScrollView 
             style={styles.tipsContainer}
             showsVerticalScrollIndicator={false}
@@ -215,12 +218,13 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     height: height * 0.85,
     padding: 20,
+    paddingTop: 12,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 8,
   },
   titleContainer: {
     flex: 1,
@@ -242,7 +246,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   categoriesContainer: {
-    marginBottom: 24,
+    marginBottom: 8,
   },
   categoriesContent: {
     paddingHorizontal: 4,
@@ -251,10 +255,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F5F5F5',
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     paddingVertical: 0,
-    borderRadius: 14,
-    marginRight: 8,
+    borderRadius: 8,
+    marginRight: 6,
     justifyContent: 'center',
     height: 28,
   },
@@ -262,11 +266,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#002B5B',
   },
   categoryIcon: {
-    fontSize: 18,
+    fontSize: 16,
     marginRight: 6,
   },
   categoryText: {
     fontSize: 14,
+    lineHeight: 14,
     color: '#666',
     fontWeight: '500',
   },
@@ -274,10 +279,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   tipsContainer: {
-    flex: 1,
+    // flex: 1,
   },
   tipsContent: {
     paddingBottom: 20,
+    paddingTop: 0,
   },
   tipCard: {
     backgroundColor: '#FFFFFF',
@@ -329,5 +335,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E9ECEF',
+    marginBottom: 4,
+    marginTop: 0,
   },
 }); 

@@ -43,7 +43,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
               } else if (route.name === 'Chat') {
                 iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
               } else if (route.name === 'Calendar') {
-                iconName = focused ? 'calendar' : 'calendar-outline';
+                iconName = focused ? 'list' : 'list-outline';
               } else if (route.name === 'Doctors') {
                 iconName = focused ? 'medical' : 'medical-outline';
               } else {
@@ -154,7 +154,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
             name="Calendar"
             component={CalendarScreen}
             options={{
-              tabBarLabel: 'Calendar',
+              tabBarLabel: 'Tasks',
             }}
           />
         </Tab.Navigator>

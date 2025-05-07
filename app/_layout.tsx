@@ -26,12 +26,12 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <AccessibilityProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
           <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
+        <Stack.Screen name="index" />
             <Stack.Screen name="(tabs)" />
-          </Stack>
-        </GestureHandlerRootView>
+      </Stack>
+    </GestureHandlerRootView>
       </AccessibilityProvider>
     </AuthProvider>
   );

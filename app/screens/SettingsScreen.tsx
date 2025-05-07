@@ -23,6 +23,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [appointmentReminders, setAppointmentReminders] = useState(true);
+  const [pushFrequency, setPushFrequency] = useState('immediately');
+  const [emailFrequency, setEmailFrequency] = useState('daily');
+  const [appointmentFrequency, setAppointmentFrequency] = useState('daily');
   const { isDarkMode, textSize, setDarkMode, setTextSize } = useAccessibility();
   const router = useRouter();
   const navigation = useNavigation<SettingsScreenNavigationProp>();
@@ -137,11 +140,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
 
   const settingsOptions = [
     {
-      icon: <MaterialCommunityIcons name="key-outline" size={24} color="#0066FF" />,
-      title: 'Password Manager',
-      onPress: () => navigation.navigate('PasswordManager'),
-    },
-    {
       icon: <MaterialCommunityIcons name="account-remove-outline" size={24} color="#0066FF" />,
       title: 'Delete Account',
       onPress: () => {},
@@ -162,25 +160,59 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const subCardBackgroundColor = isDarkMode ? '#333333' : '#FAFAFA';
   const borderColor = isDarkMode ? '#444444' : '#F5F6FA';
 
+  const frequencyOptions = [
+    { label: 'Immediately', value: 'immediately' },
+    { label: 'Hourly', value: 'hourly' },
+    { label: 'Daily', value: 'daily' },
+    { label: 'Weekly', value: 'weekly' },
+  ];
+
   return (
     <View style={[styles.container, { backgroundColor }]}>
       <View style={[styles.header, { backgroundColor }]}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color={textColor} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: textColor }]}>Settings</Text>
+        <Text style={[styles.headerTitle, { color: textColor, fontSize: 24 * textSize }]}>Settings</Text>
         <View style={styles.backButton} />
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 80 }}>
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: secondaryTextColor }]}>Notifications</Text>
+          <Text style={[styles.sectionTitle, { color: secondaryTextColor, fontSize: 16 * textSize }]}>Notifications</Text>
           <View style={[styles.settingItem, { backgroundColor: cardBackgroundColor }]}>
             <View style={styles.settingInfo}>
-              <Text style={[styles.settingTitle, { color: textColor }]}>Push Notifications</Text>
-              <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+              <Text style={[styles.settingTitle, { color: textColor, fontSize: 16 * textSize }]}>Push Notifications</Text>
+              <Text style={[styles.settingDescription, { color: secondaryTextColor, fontSize: 14 * textSize }]}>
                 Receive notifications about appointments and updates
               </Text>
+              {notificationsEnabled && (
+                <>
+                  <View style={{ flexDirection: 'row', marginTop: 8 }}>
+                    {frequencyOptions.map(opt => (
+                      <TouchableOpacity
+                        key={opt.value}
+                        style={{
+                          backgroundColor: pushFrequency === opt.value ? '#0066FF' : '#F0F0F0',
+                          paddingVertical: 6,
+                          paddingHorizontal: 12,
+                          borderRadius: 16,
+                          marginRight: 8,
+                        }}
+                        onPress={() => setPushFrequency(opt.value)}
+                      >
+                        <Text style={{ color: pushFrequency === opt.value ? '#fff' : '#222', fontSize: 13 * textSize }}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TouchableOpacity
+                    style={{ marginTop: 8, alignSelf: 'flex-start', backgroundColor: '#50cebb', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 16 }}
+                    onPress={() => Alert.alert('Congrats', 'Push notification frequency has been successfully updated!')}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 * textSize }}>Confirm</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
             <Switch
               value={notificationsEnabled}
@@ -197,10 +229,37 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
             <>
               <View style={[styles.settingItem, styles.settingSubItem, { backgroundColor: subCardBackgroundColor }]}>
                 <View style={styles.settingInfo}>
-                  <Text style={[styles.settingTitle, { color: textColor }]}>Email Notifications</Text>
-                  <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+                  <Text style={[styles.settingTitle, { color: textColor, fontSize: 16 * textSize }]}>Email Notifications</Text>
+                  <Text style={[styles.settingDescription, { color: secondaryTextColor, fontSize: 14 * textSize }]}>
                     Receive updates via email
                   </Text>
+                  {emailNotifications && (
+                    <>
+                      <View style={{ flexDirection: 'row', marginTop: 8 }}>
+                        {frequencyOptions.map(opt => (
+                          <TouchableOpacity
+                            key={opt.value}
+                            style={{
+                              backgroundColor: emailFrequency === opt.value ? '#0066FF' : '#F0F0F0',
+                              paddingVertical: 6,
+                              paddingHorizontal: 12,
+                              borderRadius: 16,
+                              marginRight: 8,
+                            }}
+                            onPress={() => setEmailFrequency(opt.value)}
+                          >
+                            <Text style={{ color: emailFrequency === opt.value ? '#fff' : '#222', fontSize: 13 * textSize }}>{opt.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <TouchableOpacity
+                        style={{ marginTop: 8, alignSelf: 'flex-start', backgroundColor: '#50cebb', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 16 }}
+                        onPress={() => Alert.alert('Congrats', 'Email notification frequency has been successfully updated!')}
+                      >
+                        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 * textSize }}>Confirm</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </View>
                 <Switch
                   value={emailNotifications}
@@ -215,10 +274,37 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
 
               <View style={[styles.settingItem, styles.settingSubItem, { backgroundColor: subCardBackgroundColor }]}>
                 <View style={styles.settingInfo}>
-                  <Text style={[styles.settingTitle, { color: textColor }]}>Appointment Reminders</Text>
-                  <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+                  <Text style={[styles.settingTitle, { color: textColor, fontSize: 16 * textSize }]}>Appointment Reminders</Text>
+                  <Text style={[styles.settingDescription, { color: secondaryTextColor, fontSize: 14 * textSize }]}>
                     Get reminded about upcoming appointments
                   </Text>
+                  {appointmentReminders && (
+                    <>
+                      <View style={{ flexDirection: 'row', marginTop: 8 }}>
+                        {frequencyOptions.map(opt => (
+                          <TouchableOpacity
+                            key={opt.value}
+                            style={{
+                              backgroundColor: appointmentFrequency === opt.value ? '#0066FF' : '#F0F0F0',
+                              paddingVertical: 6,
+                              paddingHorizontal: 12,
+                              borderRadius: 16,
+                              marginRight: 8,
+                            }}
+                            onPress={() => setAppointmentFrequency(opt.value)}
+                          >
+                            <Text style={{ color: appointmentFrequency === opt.value ? '#fff' : '#222', fontSize: 13 * textSize }}>{opt.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <TouchableOpacity
+                        style={{ marginTop: 8, alignSelf: 'flex-start', backgroundColor: '#50cebb', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 16 }}
+                        onPress={() => Alert.alert('Congrats', 'Appointment reminder frequency has been successfully updated!')}
+                      >
+                        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 * textSize }}>Confirm</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
                 </View>
                 <Switch
                   value={appointmentReminders}
@@ -235,11 +321,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: secondaryTextColor }]}>Security</Text>
+          <Text style={[styles.sectionTitle, { color: secondaryTextColor, fontSize: 16 * textSize }]}>Security</Text>
           <View style={[styles.settingItem, { backgroundColor: cardBackgroundColor }]}>
             <View style={styles.settingInfo}>
-              <Text style={[styles.settingTitle, { color: textColor }]}>Biometric Login</Text>
-              <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+              <Text style={[styles.settingTitle, { color: textColor, fontSize: 16 * textSize }]}>Biometric Login</Text>
+              <Text style={[styles.settingDescription, { color: secondaryTextColor, fontSize: 14 * textSize }]}>
                 {isBiometricSupported 
                   ? 'Use Face ID or Fingerprint for login' 
                   : 'Your device does not support biometric authentication'}
@@ -256,12 +342,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: secondaryTextColor }]}>Accessibility</Text>
+          <Text style={[styles.sectionTitle, { color: secondaryTextColor, fontSize: 16 * textSize }]}>Accessibility</Text>
           
-          <View style={[styles.settingItem, { backgroundColor: cardBackgroundColor }]}>
+          <View style={[styles.settingItem, { backgroundColor: cardBackgroundColor, marginBottom: 16 }]}>
             <View style={styles.settingInfo}>
-              <Text style={[styles.settingTitle, { color: textColor }]}>Dark Mode</Text>
-              <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+              <Text style={[styles.settingTitle, { color: textColor, fontSize: 16 * textSize }]}>Dark Mode</Text>
+              <Text style={[styles.settingDescription, { color: secondaryTextColor, fontSize: 14 * textSize }]}>
                 Switch between light and dark theme
               </Text>
             </View>
@@ -275,15 +361,15 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
 
           <View style={[styles.settingItem, { backgroundColor: cardBackgroundColor }]}>
             <View style={styles.settingInfo}>
-              <Text style={[styles.settingTitle, { color: textColor }]}>Text Size</Text>
-              <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+              <Text style={[styles.settingTitle, { color: textColor, fontSize: 16 * textSize }]}>Text Size</Text>
+              <Text style={[styles.settingDescription, { color: secondaryTextColor, fontSize: 14 * textSize }]}>
                 Adjust the size of text throughout the app
               </Text>
             </View>
           </View>
           
           <View style={[styles.sliderContainer, { backgroundColor: cardBackgroundColor }]}>
-            <Text style={[styles.sliderLabel, { color: secondaryTextColor }]}>Small</Text>
+            <Text style={[styles.sliderLabel, { color: secondaryTextColor, fontSize: 12 * textSize }]}>Small</Text>
             <Slider
               style={styles.slider}
               minimumValue={0.8}
@@ -294,11 +380,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
               maximumTrackTintColor={isDarkMode ? '#666666' : '#E0E0E0'}
               thumbTintColor="#0066FF"
             />
-            <Text style={[styles.sliderLabel, { color: secondaryTextColor }]}>Large</Text>
+            <Text style={[styles.sliderLabel, { color: secondaryTextColor, fontSize: 12 * textSize }]}>Large</Text>
           </View>
         </View>
 
-        <View style={styles.content}>
+        <View style={{ marginBottom: 40 }}>
           {settingsOptions.map((option, index) => (
             <TouchableOpacity
               key={index}
@@ -308,7 +394,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
               <View style={[styles.optionIconContainer, { backgroundColor: cardBackgroundColor }]}>
                 {option.icon}
               </View>
-              <Text style={[styles.optionText, { color: textColor }]}>{option.title}</Text>
+              <Text style={[styles.optionText, { color: textColor, fontSize: 16 * textSize }]}>{option.title}</Text>
               <Icon name="chevron-right" size={24} color={secondaryTextColor} />
             </TouchableOpacity>
           ))}
@@ -366,7 +452,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   content: {
-    flex: 1,
     paddingHorizontal: 20,
   },
   optionItem: {

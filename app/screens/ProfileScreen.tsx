@@ -192,7 +192,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, firstName, lastName
     <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
       <ScrollView style={[styles.container, { backgroundColor }]}>
         <View style={[styles.header, { backgroundColor: headerBackgroundColor }]}>
-          <Text style={[styles.headerTitle, { color: textColor }]}>Profile</Text>
+          <Text style={[styles.headerTitle, { color: textColor, fontSize: 24 * textSize }]}>Profile</Text>
         </View>
 
         <View style={[styles.profileContainer, { backgroundColor: cardBackgroundColor }]}>
@@ -288,13 +288,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, firstName, lastName
             </View>
           ) : (
             <View style={styles.profileInfo}>
-              <Text style={[styles.name, { color: textColor }]}>{user?.displayName || 'No name set'}</Text>
-              <Text style={[styles.email, { color: secondaryTextColor }]}>{user?.email}</Text>
+              <Text style={[styles.name, { color: textColor, fontSize: 24 * textSize }]}>{user?.displayName || 'No name set'}</Text>
+              <Text style={[styles.email, { color: secondaryTextColor, fontSize: 16 * textSize }]}>{user?.email}</Text>
               {phoneNumber && (
-                <Text style={[styles.info, { color: secondaryTextColor }]}>Phone: {phoneNumber}</Text>
+                <Text style={[styles.info, { color: secondaryTextColor, fontSize: 16 * textSize }]}>Phone: {phoneNumber}</Text>
               )}
               {address && (
-                <Text style={[styles.info, { color: secondaryTextColor }]}>Address: {address}</Text>
+                <Text style={[styles.info, { color: secondaryTextColor, fontSize: 16 * textSize }]}>Address: {address}</Text>
               )}
               <TouchableOpacity
                 style={[styles.editButton, { backgroundColor: buttonBackgroundColor }]}
@@ -311,40 +311,40 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, firstName, lastName
             style={[styles.settingsItem, { borderBottomColor: borderColor }]}
             onPress={() => navigation.navigate('Settings')}
           >
-            <Text style={[styles.settingsText, { color: textColor }]}>Settings</Text>
-            <Text style={[styles.settingsArrow, { color: secondaryTextColor }]}>{'>'}</Text>
+            <Text style={[styles.settingsText, { color: textColor, fontSize: 16 * textSize }]}>Settings</Text>
+            <Text style={[styles.settingsArrow, { color: secondaryTextColor, fontSize: 16 * textSize }]}>{'>'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={[styles.settingsItem, { borderBottomColor: borderColor }]}
             onPress={() => navigation.navigate('PasswordManager')}
           >
-            <Text style={[styles.settingsText, { color: textColor }]}>Password Manager</Text>
-            <Text style={[styles.settingsArrow, { color: secondaryTextColor }]}>{'>'}</Text>
+            <Text style={[styles.settingsText, { color: textColor, fontSize: 16 * textSize }]}>Password Manager</Text>
+            <Text style={[styles.settingsArrow, { color: secondaryTextColor, fontSize: 16 * textSize }]}>{'>'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={[styles.settingsItem, { borderBottomColor: borderColor }]}
             onPress={() => navigation.navigate('PaymentMethod')}
           >
-            <Text style={[styles.settingsText, { color: textColor }]}>Payment Method</Text>
-            <Text style={[styles.settingsArrow, { color: secondaryTextColor }]}>{'>'}</Text>
+            <Text style={[styles.settingsText, { color: textColor, fontSize: 16 * textSize }]}>Payment Method</Text>
+            <Text style={[styles.settingsArrow, { color: secondaryTextColor, fontSize: 16 * textSize }]}>{'>'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={[styles.settingsItem, { borderBottomColor: borderColor }]}
             onPress={() => navigation.navigate('PrivacyPolicy')}
           >
-            <Text style={[styles.settingsText, { color: textColor }]}>Privacy Policy</Text>
-            <Text style={[styles.settingsArrow, { color: secondaryTextColor }]}>{'>'}</Text>
+            <Text style={[styles.settingsText, { color: textColor, fontSize: 16 * textSize }]}>Privacy Policy</Text>
+            <Text style={[styles.settingsArrow, { color: secondaryTextColor, fontSize: 16 * textSize }]}>{'>'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={[styles.settingsItem, { borderBottomColor: borderColor }]}
             onPress={handleAuthentication}
           >
-            <Text style={[styles.settingsText, { color: '#FF3B30' }]}>Logout</Text>
-            <Text style={[styles.settingsArrow, { color: '#FF3B30' }]}>{'>'}</Text>
+            <Text style={[styles.settingsText, { color: '#FF3B30', fontSize: 16 * textSize }]}>Logout</Text>
+            <Text style={[styles.settingsArrow, { color: '#FF3B30', fontSize: 16 * textSize }]}>{'>'}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -361,7 +361,8 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 0 : 16,
+    paddingTop: Platform.OS === 'ios' ? 40 : 16,
+    paddingBottom: 24,
   },
   headerTitle: {
     fontSize: 24,
