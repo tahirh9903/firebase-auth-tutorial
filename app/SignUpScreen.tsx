@@ -34,7 +34,7 @@ const SignUpScreen: React.FC<SignUpScreenProps> = ({ onBack, onSignUp }) => {
     }
 
     if (!password.trim()) {
-      newErrors.password = 'Password is required';
+      newErrors.password = 'Password is required and encrypted';
     } else if (password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }

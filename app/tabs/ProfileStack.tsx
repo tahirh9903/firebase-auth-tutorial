@@ -1,7 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { User } from '@firebase/auth';
-import ProfileScreen from './ProfileScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import PasswordManagerScreen from '../screens/PasswordManagerScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
@@ -39,13 +39,14 @@ const ProfileStackNavigator: React.FC<ProfileStackProps> = ({
       <Stack.Screen 
         name="UserProfile"
       >
-        {() => (
+        {({ navigation }) => (
           <ProfileScreen
             user={user}
             firstName={firstName}
             lastName={lastName}
             phoneNumber={phoneNumber}
             handleAuthentication={handleAuthentication}
+            navigation={navigation}
           />
         )}
       </Stack.Screen>

@@ -1,4 +1,4 @@
-package com.anonymous.firebaseauthtutorial
+package com.vighanesh2.firebaseauthtutorial
 
 import android.app.Application
 import android.content.res.Configuration

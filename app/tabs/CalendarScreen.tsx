@@ -20,6 +20,7 @@ import type { RouteProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { format } from 'date-fns';
+import MoodHistoryModal from '../components/MoodHistoryModal';
 
 interface Event {
   id: string;
@@ -39,6 +40,16 @@ interface Event {
   type?: string;
   status?: string;
   taskCategory?: string;
+}
+
+interface MoodLog {
+  id: string;
+  userId: string;
+  date: string;
+  mood: string;
+  symptoms: string[];
+  note: string;
+  createdAt: string;
 }
 
 type CalendarScreenRouteProp = RouteProp<{
@@ -105,6 +116,24 @@ const TASK_CATEGORIES = [
   }
 ];
 
+const moods = [
+  { emoji: '😊', label: 'Happy', value: 'happy' },
+  { emoji: '😐', label: 'Neutral', value: 'neutral' },
+  { emoji: '😔', label: 'Sad', value: 'sad' },
+  { emoji: '😴', label: 'Tired', value: 'tired' },
+  { emoji: '😡', label: 'Angry', value: 'angry' },
+  { emoji: '🤒', label: 'Sick', value: 'sick' },
+];
+
+const symptoms = [
+  { emoji: '🤕', label: 'Headache', value: 'headache' },
+  { emoji: '🤢', label: 'Nausea', value: 'nausea' },
+  { emoji: '😫', label: 'Pain', value: 'pain' },
+  { emoji: '😰', label: 'Anxiety', value: 'anxiety' },
+  { emoji: '😪', label: 'Drowsy', value: 'drowsy' },
+  { emoji: '🤧', label: 'Cold', value: 'cold' },
+];
+
 const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
   const [selectedDate, setSelectedDate] = useState('');
   const [events, setEvents] = useState<{ [date: string]: Event[] }>({});
@@ -121,6 +150,13 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [tempTimeSlot, setTempTimeSlot] = useState<string | null>(null);
+  const [showMoodTracker, setShowMoodTracker] = useState(false);
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
+  const [moodNote, setMoodNote] = useState('');
+  const [moodLogs, setMoodLogs] = useState<MoodLog[]>([]);
+  const [editingMoodLog, setEditingMoodLog] = useState<MoodLog | null>(null);
+  const [showMoodHistory, setShowMoodHistory] = useState(false);
 
   const navigation = useNavigation();
 
@@ -153,6 +189,7 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
   useEffect(() => {
     if (currentUser) {
       fetchEvents();
+      fetchMoodLogs();
     }
   }, [currentUser]);
 
@@ -231,6 +268,27 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
     }
   };
 
+  const fetchMoodLogs = async () => {
+    try {
+      const moodLogsRef = collection(firestore, 'moodLogs');
+      const q = query(
+        moodLogsRef,
+        where('userId', '==', currentUser?.uid)
+      );
+      const snapshot = await getDocs(q);
+      
+      const logs: MoodLog[] = [];
+      snapshot.docs.forEach(doc => {
+        const log = { id: doc.id, ...doc.data() } as MoodLog;
+        logs.push(log);
+      });
+      
+      setMoodLogs(logs);
+    } catch (error) {
+      console.error('Error fetching mood logs:', error);
+    }
+  };
+
   const handleDayPress = async (day: { dateString: string }) => {
     console.log('Day pressed:', day.dateString);
     setSelectedDate(day.dateString);
@@ -262,16 +320,24 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
 
   const formatDateForDisplay = (dateString: string) => {
     try {
-      // Ensure the date string is in YYYY-MM-DD format
-      if (!dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        return 'Invalid Date';
+      // First try to parse the date string directly
+      const date = new Date(dateString);
+      
+      // If the date is valid, format it
+      if (!isNaN(date.getTime())) {
+        return format(date, 'MMM d, yyyy');
       }
-      const [year, month, day] = dateString.split('-').map(num => parseInt(num, 10));
-      const date = new Date(year, month - 1, day); // month is 0-indexed
-      if (isNaN(date.getTime())) {
-        return 'Invalid Date';
+      
+      // If direct parsing fails, try parsing YYYY-MM-DD format
+      if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = dateString.split('-').map(num => parseInt(num, 10));
+        const parsedDate = new Date(year, month - 1, day);
+        if (!isNaN(parsedDate.getTime())) {
+          return format(parsedDate, 'MMM d, yyyy');
+        }
       }
-      return format(date, 'MMMM d, yyyy');
+      
+      return 'Invalid Date';
     } catch (error) {
       console.error('Error formatting date:', error);
       return 'Invalid Date';
@@ -517,6 +583,85 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
     </View>
   );
 
+  const handleMoodSelect = (mood: string) => {
+    setSelectedMood(mood);
+  };
+
+  const handleSymptomSelect = (symptom: string) => {
+    setSelectedSymptoms(prev => 
+      prev.includes(symptom)
+        ? prev.filter(s => s !== symptom)
+        : [...prev, symptom]
+    );
+  };
+
+  const handleSaveMood = async () => {
+    if (!selectedMood) return;
+
+    try {
+      const moodData = {
+        userId: currentUser?.uid,
+        date: selectedDate,
+        mood: selectedMood,
+        symptoms: selectedSymptoms,
+        note: moodNote,
+        createdAt: new Date().toISOString(),
+      };
+
+      if (editingMoodLog) {
+        await updateDoc(doc(firestore, 'moodLogs', editingMoodLog.id), moodData);
+      } else {
+        await addDoc(collection(firestore, 'moodLogs'), moodData);
+      }
+
+      setShowMoodTracker(false);
+      setSelectedMood(null);
+      setSelectedSymptoms([]);
+      setMoodNote('');
+      setEditingMoodLog(null);
+      await fetchMoodLogs();
+      Alert.alert('Success', `Mood log ${editingMoodLog ? 'updated' : 'saved'} successfully!`);
+    } catch (error) {
+      console.error('Error saving mood:', error);
+      Alert.alert('Error', 'Failed to save mood log. Please try again.');
+    }
+  };
+
+  const handleDeleteMoodLog = async (logId: string) => {
+    Alert.alert(
+      'Delete Mood Log',
+      'Are you sure you want to delete this mood log?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteDoc(doc(firestore, 'moodLogs', logId));
+              await fetchMoodLogs();
+              Alert.alert('Success', 'Mood log deleted successfully');
+            } catch (error) {
+              console.error('Error deleting mood log:', error);
+              Alert.alert('Error', 'Failed to delete mood log');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEditMoodLog = (log: MoodLog) => {
+    setEditingMoodLog(log);
+    setSelectedMood(log.mood);
+    setSelectedSymptoms(log.symptoms);
+    setMoodNote(log.note);
+    setShowMoodTracker(true);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView 
@@ -706,6 +851,140 @@ const CalendarScreen: React.FC<CalendarScreenProps> = ({ route }) => {
                   <Text style={styles.buttonText}>Confirm</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Mood Tracker Section */}
+        <View style={styles.moodTrackerSection}>
+          <TouchableOpacity 
+            style={styles.moodTrackerButton}
+            onPress={() => setShowMoodTracker(true)}
+          >
+            <View style={styles.moodTrackerContent}>
+              <Text style={styles.moodTrackerEmoji}>😐</Text>
+              <View style={styles.moodTrackerTextContainer}>
+                <Text style={styles.moodTrackerTitle}>How are you feeling today?</Text>
+                <Text style={styles.moodTrackerSubtitle}>Log your mood and symptoms!</Text>
+              </View>
+              <Icon name="add-circle-outline" size={24} color="#002B5B" />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.moodHistoryButton}
+            onPress={() => setShowMoodHistory(true)}
+          >
+            <View style={styles.moodHistoryButtonContent}>
+              <View style={styles.moodHistoryButtonLeft}>
+                <Icon name="time" size={24} color="#002B5B" />
+                <View style={styles.moodHistoryButtonTextContainer}>
+                  <Text style={styles.moodHistoryButtonTitle}>Mood History</Text>
+                  <Text style={styles.moodHistoryButtonSubtitle}>
+                    {moodLogs.length} entries
+                  </Text>
+                </View>
+              </View>
+              <Icon name="calendar-outline" size={24} color="#002B5B" />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Mood History Modal */}
+        <MoodHistoryModal
+          visible={showMoodHistory}
+          onClose={() => setShowMoodHistory(false)}
+          moodLogs={moodLogs}
+          onEditMoodLog={handleEditMoodLog}
+          onDeleteMoodLog={handleDeleteMoodLog}
+        />
+
+        {/* Mood Tracker Modal */}
+        <Modal
+          visible={showMoodTracker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowMoodTracker(false)}
+        >
+          <View style={styles.moodTrackerModalOverlay}>
+            <View style={styles.moodTrackerModal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Log Your Mood</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowMoodTracker(false)}
+                  style={styles.closeButton}
+                >
+                  <Icon name="close" size={24} color="#002B5B" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalContent}>
+                <Text style={styles.sectionTitle}>How are you feeling?</Text>
+                <View style={styles.moodsContainer}>
+                  {moods.map((mood) => (
+                    <TouchableOpacity
+                      key={mood.value}
+                      style={[
+                        styles.moodButton,
+                        selectedMood === mood.value && styles.selectedMoodButton
+                      ]}
+                      onPress={() => handleMoodSelect(mood.value)}
+                    >
+                      <Text style={styles.moodEmoji}>{mood.emoji}</Text>
+                      <Text style={[
+                        styles.moodLabel,
+                        selectedMood === mood.value && styles.selectedMoodLabel
+                      ]}>
+                        {mood.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.sectionTitle}>Any symptoms?</Text>
+                <View style={styles.symptomsContainer}>
+                  {symptoms.map((symptom) => (
+                    <TouchableOpacity
+                      key={symptom.value}
+                      style={[
+                        styles.symptomButton,
+                        selectedSymptoms.includes(symptom.value) && styles.selectedSymptomButton
+                      ]}
+                      onPress={() => handleSymptomSelect(symptom.value)}
+                    >
+                      <Text style={styles.symptomEmoji}>{symptom.emoji}</Text>
+                      <Text style={[
+                        styles.symptomLabel,
+                        selectedSymptoms.includes(symptom.value) && styles.selectedSymptomLabel
+                      ]}>
+                        {symptom.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.sectionTitle}>Add a note (optional)</Text>
+                <TextInput
+                  style={styles.noteInput}
+                  placeholder="How are you feeling today?"
+                  value={moodNote}
+                  onChangeText={setMoodNote}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </ScrollView>
+
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  !selectedMood && styles.saveButtonDisabled
+                ]}
+                onPress={handleSaveMood}
+                disabled={!selectedMood}
+              >
+                <Text style={styles.saveButtonText}>Save Mood Log</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -1038,6 +1317,199 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginTop: 4,
+  },
+  moodTrackerSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    marginTop: 20,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E9ECEF',
+  },
+  moodTrackerButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+  },
+  moodTrackerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  moodTrackerEmoji: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  moodTrackerTextContainer: {
+    flex: 1,
+  },
+  moodTrackerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#002B5B',
+    marginBottom: 4,
+  },
+  moodTrackerSubtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  moodTrackerModal: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '80%',
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 8,
+  },
+  moodsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+  },
+  moodButton: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    width: '30%',
+  },
+  selectedMoodButton: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#2196F3',
+    borderWidth: 2,
+  },
+  moodEmoji: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  moodLabel: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  selectedMoodLabel: {
+    color: '#2196F3',
+    fontWeight: '600',
+  },
+  symptomsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 24,
+  },
+  symptomButton: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    width: '30%',
+  },
+  selectedSymptomButton: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#2196F3',
+    borderWidth: 2,
+  },
+  symptomEmoji: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  symptomLabel: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  selectedSymptomLabel: {
+    color: '#2196F3',
+    fontWeight: '600',
+  },
+  noteInput: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 24,
+    minHeight: 100,
+  },
+  saveButton: {
+    backgroundColor: '#2196F3',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#B0BEC5',
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  moodTrackerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  moodHistoryButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  moodHistoryButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  moodHistoryButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  moodHistoryButtonTextContainer: {
+    marginLeft: 12,
+  },
+  moodHistoryButtonTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#002B5B',
+    marginBottom: 2,
+  },
+  moodHistoryButtonSubtitle: {
+    fontSize: 14,
+    color: '#666',
   },
 });
 
