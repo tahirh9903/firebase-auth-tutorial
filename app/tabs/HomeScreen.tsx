@@ -564,8 +564,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
         style={[styles.scrollView, { backgroundColor }]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
-        indicatorStyle={isDarkMode ? 'white' : 'black'}
-        scrollIndicatorInsets={{ right: 1 }}
       >
         <View style={[styles.calendar, { backgroundColor: calendarBackgroundColor }]}>
           <View style={[styles.monthHeader, { borderBottomColor: calendarBorderColor }]}>
