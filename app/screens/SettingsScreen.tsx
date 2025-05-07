@@ -8,6 +8,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ProfileStackParamList } from '../navigation/types';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Slider from '@react-native-community/slider';
+import { useAccessibility } from '../context/AccessibilityContext';
 
 type SettingsScreenNavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
 
@@ -21,6 +23,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [appointmentReminders, setAppointmentReminders] = useState(true);
+  const { isDarkMode, textSize, setDarkMode, setTextSize } = useAccessibility();
   const router = useRouter();
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const route = useRoute();
@@ -29,6 +32,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
   useEffect(() => {
     checkBiometricSettings();
     loadNotificationSettings();
+    loadAccessibilitySettings();
   }, []);
 
   const loadNotificationSettings = async () => {
@@ -106,6 +110,31 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
     }
   };
 
+  const loadAccessibilitySettings = async () => {
+    try {
+      const settings = await AsyncStorage.getItem('accessibilitySettings');
+      if (settings) {
+        const parsed = JSON.parse(settings);
+        setDarkMode(parsed.darkMode);
+        setTextSize(parsed.textSize);
+      }
+    } catch (error) {
+      console.error('Error loading accessibility settings:', error);
+    }
+  };
+
+  const saveAccessibilitySettings = async () => {
+    try {
+      const settings = {
+        darkMode: isDarkMode,
+        textSize: textSize,
+      };
+      await AsyncStorage.setItem('accessibilitySettings', JSON.stringify(settings));
+    } catch (error) {
+      console.error('Error saving accessibility settings:', error);
+    }
+  };
+
   const settingsOptions = [
     {
       icon: <MaterialCommunityIcons name="key-outline" size={24} color="#0066FF" />,
@@ -126,23 +155,30 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
     }
   }, [initialTab]);
 
+  const textColor = isDarkMode ? '#fff' : '#000';
+  const secondaryTextColor = isDarkMode ? '#ccc' : '#666';
+  const backgroundColor = isDarkMode ? '#1a1a1a' : '#FFFFFF';
+  const cardBackgroundColor = isDarkMode ? '#2a2a2a' : '#F8F8F8';
+  const subCardBackgroundColor = isDarkMode ? '#333333' : '#FAFAFA';
+  const borderColor = isDarkMode ? '#444444' : '#F5F6FA';
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor }]}>
+      <View style={[styles.header, { backgroundColor }]}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color="#000000" />
+          <Icon name="arrow-back" size={24} color={textColor} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={[styles.headerTitle, { color: textColor }]}>Settings</Text>
         <View style={styles.backButton} />
       </View>
 
       <ScrollView style={styles.content}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
-          <View style={styles.settingItem}>
+          <Text style={[styles.sectionTitle, { color: secondaryTextColor }]}>Notifications</Text>
+          <View style={[styles.settingItem, { backgroundColor: cardBackgroundColor }]}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>Push Notifications</Text>
-              <Text style={styles.settingDescription}>
+              <Text style={[styles.settingTitle, { color: textColor }]}>Push Notifications</Text>
+              <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
                 Receive notifications about appointments and updates
               </Text>
             </View>
@@ -152,15 +188,17 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                 setNotificationsEnabled(value);
                 saveNotificationSettings();
               }}
+              trackColor={{ false: '#767577', true: '#81b0ff' }}
+              thumbColor={notificationsEnabled ? '#f5dd4b' : '#f4f3f4'}
             />
           </View>
 
           {notificationsEnabled && (
             <>
-              <View style={[styles.settingItem, styles.settingSubItem]}>
+              <View style={[styles.settingItem, styles.settingSubItem, { backgroundColor: subCardBackgroundColor }]}>
                 <View style={styles.settingInfo}>
-                  <Text style={styles.settingTitle}>Email Notifications</Text>
-                  <Text style={styles.settingDescription}>
+                  <Text style={[styles.settingTitle, { color: textColor }]}>Email Notifications</Text>
+                  <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
                     Receive updates via email
                   </Text>
                 </View>
@@ -170,13 +208,15 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                     setEmailNotifications(value);
                     saveNotificationSettings();
                   }}
+                  trackColor={{ false: '#767577', true: '#81b0ff' }}
+                  thumbColor={emailNotifications ? '#f5dd4b' : '#f4f3f4'}
                 />
               </View>
 
-              <View style={[styles.settingItem, styles.settingSubItem]}>
+              <View style={[styles.settingItem, styles.settingSubItem, { backgroundColor: subCardBackgroundColor }]}>
                 <View style={styles.settingInfo}>
-                  <Text style={styles.settingTitle}>Appointment Reminders</Text>
-                  <Text style={styles.settingDescription}>
+                  <Text style={[styles.settingTitle, { color: textColor }]}>Appointment Reminders</Text>
+                  <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
                     Get reminded about upcoming appointments
                   </Text>
                 </View>
@@ -186,6 +226,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                     setAppointmentReminders(value);
                     saveNotificationSettings();
                   }}
+                  trackColor={{ false: '#767577', true: '#81b0ff' }}
+                  thumbColor={appointmentReminders ? '#f5dd4b' : '#f4f3f4'}
                 />
               </View>
             </>
@@ -193,11 +235,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Security</Text>
-          <View style={styles.settingItem}>
+          <Text style={[styles.sectionTitle, { color: secondaryTextColor }]}>Security</Text>
+          <View style={[styles.settingItem, { backgroundColor: cardBackgroundColor }]}>
             <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>Biometric Login</Text>
-              <Text style={styles.settingDescription}>
+              <Text style={[styles.settingTitle, { color: textColor }]}>Biometric Login</Text>
+              <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
                 {isBiometricSupported 
                   ? 'Use Face ID or Fingerprint for login' 
                   : 'Your device does not support biometric authentication'}
@@ -207,7 +249,52 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
               value={isBiometricEnabled}
               onValueChange={toggleBiometric}
               disabled={!isBiometricSupported}
+              trackColor={{ false: '#767577', true: '#81b0ff' }}
+              thumbColor={isBiometricEnabled ? '#f5dd4b' : '#f4f3f4'}
             />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: secondaryTextColor }]}>Accessibility</Text>
+          
+          <View style={[styles.settingItem, { backgroundColor: cardBackgroundColor }]}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingTitle, { color: textColor }]}>Dark Mode</Text>
+              <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+                Switch between light and dark theme
+              </Text>
+            </View>
+            <Switch
+              value={isDarkMode}
+              onValueChange={setDarkMode}
+              trackColor={{ false: '#767577', true: '#81b0ff' }}
+              thumbColor={isDarkMode ? '#f5dd4b' : '#f4f3f4'}
+            />
+          </View>
+
+          <View style={[styles.settingItem, { backgroundColor: cardBackgroundColor }]}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingTitle, { color: textColor }]}>Text Size</Text>
+              <Text style={[styles.settingDescription, { color: secondaryTextColor }]}>
+                Adjust the size of text throughout the app
+              </Text>
+            </View>
+          </View>
+          
+          <View style={[styles.sliderContainer, { backgroundColor: cardBackgroundColor }]}>
+            <Text style={[styles.sliderLabel, { color: secondaryTextColor }]}>Small</Text>
+            <Slider
+              style={styles.slider}
+              minimumValue={0.8}
+              maximumValue={1.4}
+              value={textSize}
+              onValueChange={setTextSize}
+              minimumTrackTintColor="#0066FF"
+              maximumTrackTintColor={isDarkMode ? '#666666' : '#E0E0E0'}
+              thumbTintColor="#0066FF"
+            />
+            <Text style={[styles.sliderLabel, { color: secondaryTextColor }]}>Large</Text>
           </View>
         </View>
 
@@ -215,14 +302,14 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
           {settingsOptions.map((option, index) => (
             <TouchableOpacity
               key={index}
-              style={styles.optionItem}
+              style={[styles.optionItem, { borderBottomColor: borderColor }]}
               onPress={option.onPress}
             >
-              <View style={styles.optionIconContainer}>
+              <View style={[styles.optionIconContainer, { backgroundColor: cardBackgroundColor }]}>
                 {option.icon}
               </View>
-              <Text style={styles.optionText}>{option.title}</Text>
-              <Icon name="chevron-right" size={24} color="#CCCCCC" />
+              <Text style={[styles.optionText, { color: textColor }]}>{option.title}</Text>
+              <Icon name="chevron-right" size={24} color={secondaryTextColor} />
             </TouchableOpacity>
           ))}
         </View>
@@ -234,7 +321,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -242,7 +328,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 20,
     paddingTop: Platform.OS === 'ios' ? 60 : 20,
-    backgroundColor: '#FFFFFF',
   },
   backButton: {
     width: 40,
@@ -252,7 +337,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2c3e50',
   },
   section: {
     padding: 20,
@@ -260,14 +344,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
     marginBottom: 16,
   },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F8F8F8',
     padding: 16,
     borderRadius: 12,
   },
@@ -282,7 +364,6 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: 14,
-    color: '#666',
   },
   content: {
     flex: 1,
@@ -293,13 +374,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F6FA',
   },
   optionIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F5F6FA',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -307,11 +386,25 @@ const styles = StyleSheet.create({
   optionText: {
     flex: 1,
     fontSize: 16,
-    color: '#000000',
   },
   settingSubItem: {
     marginTop: 10,
-    backgroundColor: '#FAFAFA',
+  },
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  slider: {
+    flex: 1,
+    marginHorizontal: 10,
+  },
+  sliderLabel: {
+    fontSize: 12,
+    width: 40,
+    textAlign: 'center',
   },
 });
 

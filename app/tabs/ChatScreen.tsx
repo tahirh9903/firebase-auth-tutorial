@@ -25,6 +25,7 @@ import {
 import { db } from '../firebaseConfig';
 import axios from 'axios';
 import { OPENAI_API_KEY } from '@env';
+import { useAccessibility } from '../context/AccessibilityContext';
 console.log('KEY:', OPENAI_API_KEY);
 
 
@@ -69,6 +70,7 @@ const censorProfanity = (text: string): string => {
 };
 
 const ChatScreen = () => {
+  const { isDarkMode, textSize } = useAccessibility();
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationsState, setConversationsState] = useState<ConversationState>({
     isLoading: true,
@@ -78,6 +80,20 @@ const ChatScreen = () => {
   const [receiverEmail, setReceiverEmail] = useState('');
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Dynamic colors based on dark mode
+  const textColor = isDarkMode ? '#fff' : '#000';
+  const secondaryTextColor = isDarkMode ? '#ccc' : '#666';
+  const backgroundColor = isDarkMode ? '#1a1a1a' : '#f5f5f5';
+  const headerBackgroundColor = isDarkMode ? '#2a2a2a' : '#fff';
+  const borderColor = isDarkMode ? '#444444' : '#ddd';
+  const messageBackgroundColor = isDarkMode ? '#2a2a2a' : '#fff';
+  const sentMessageBackgroundColor = isDarkMode ? '#0066cc' : '#50cebb';
+  const inputBackgroundColor = isDarkMode ? '#2a2a2a' : '#fff';
+  const inputBorderColor = isDarkMode ? '#444444' : '#ddd';
+  const modalBackgroundColor = isDarkMode ? '#2a2a2a' : '#fff';
+  const buttonBackgroundColor = isDarkMode ? '#0066cc' : '#50cebb';
+  const cancelButtonBackgroundColor = isDarkMode ? '#444444' : '#ddd';
 
   useEffect(() => {
     const auth = getAuth();
@@ -293,12 +309,12 @@ const ChatScreen = () => {
   if (!selectedChat) {
     // Show conversations list
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.headerText}>Messages</Text>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
+        <View style={[styles.container, { backgroundColor }]}>
+          <View style={[styles.header, { backgroundColor: headerBackgroundColor, borderBottomColor: borderColor }]}>
+            <Text style={[styles.headerText, { color: textColor }]}>Messages</Text>
             <TouchableOpacity 
-              style={styles.newChatButton} 
+              style={[styles.newChatButton, { backgroundColor: buttonBackgroundColor }]} 
               onPress={startNewChat}
             >
               <Text style={styles.newChatButtonText}>+</Text>
@@ -310,21 +326,21 @@ const ChatScreen = () => {
             keyExtractor={(item) => item.email}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={styles.conversationItem}
+                style={[styles.conversationItem, { backgroundColor: messageBackgroundColor, borderBottomColor: borderColor }]}
                 onPress={() => selectChat(item.email)}
               >
                 <View style={styles.conversationContent}>
-                  <Text style={styles.emailText}>{item.email}</Text>
-                  <Text style={styles.lastMessageText} numberOfLines={1}>
+                  <Text style={[styles.emailText, { color: textColor }]}>{item.email}</Text>
+                  <Text style={[styles.lastMessageText, { color: secondaryTextColor }]} numberOfLines={1}>
                     {item.lastMessage}
                   </Text>
                 </View>
-                {item.unread && <View style={styles.unreadDot} />}
+                {item.unread && <View style={[styles.unreadDot, { backgroundColor: buttonBackgroundColor }]} />}
               </TouchableOpacity>
             )}
             ListEmptyComponent={() => (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
+                <Text style={[styles.emptyText, { color: secondaryTextColor }]}>
                   {conversationsState.isLoading 
                     ? 'Loading conversations...' 
                     : 'No conversations yet'}
@@ -341,11 +357,16 @@ const ChatScreen = () => {
             onRequestClose={hideNewChatModal}
           >
             <View style={styles.modalContainer} pointerEvents="box-none">
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>New Message</Text>
+              <View style={[styles.modalContent, { backgroundColor: modalBackgroundColor }]}>
+                <Text style={[styles.modalTitle, { color: textColor }]}>New Message</Text>
                 <TextInput
-                  style={styles.modalInput}
+                  style={[styles.modalInput, { 
+                    backgroundColor: inputBackgroundColor,
+                    borderColor: inputBorderColor,
+                    color: textColor
+                  }]}
                   placeholder="Enter recipient email"
+                  placeholderTextColor={secondaryTextColor}
                   value={receiverEmail}
                   onChangeText={setReceiverEmail}
                   keyboardType="email-address"
@@ -354,13 +375,13 @@ const ChatScreen = () => {
                 />
                 <View style={styles.modalButtons}>
                   <TouchableOpacity 
-                    style={[styles.modalButton, styles.cancelButton]}
+                    style={[styles.modalButton, { backgroundColor: cancelButtonBackgroundColor }]}
                     onPress={hideNewChatModal}
                   >
                     <Text style={styles.buttonText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
-                    style={[styles.modalButton, styles.startButton]}
+                    style={[styles.modalButton, { backgroundColor: buttonBackgroundColor }]}
                     onPress={handleNewChat}
                   >
                     <Text style={styles.buttonText}>Start Chat</Text>
@@ -382,16 +403,16 @@ const ChatScreen = () => {
   ).sort((a, b) => b.timestamp?.seconds - a.timestamp?.seconds);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
+      <View style={[styles.container, { backgroundColor }]}>
+        <View style={[styles.header, { backgroundColor: headerBackgroundColor, borderBottomColor: borderColor }]}>
           <TouchableOpacity 
             style={styles.backButton} 
             onPress={() => setSelectedChat(null)}
           >
-            <Text>←</Text>
+            <Text style={{ color: textColor }}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerText}>{selectedChat}</Text>
+          <Text style={[styles.headerText, { color: textColor }]}>{selectedChat}</Text>
         </View>
 
         <FlatList
@@ -402,28 +423,41 @@ const ChatScreen = () => {
               style={[
                 styles.messageContainer,
                 item.senderEmail === currentUser?.email
-                  ? styles.sentMessage
-                  : styles.receivedMessage,
+                  ? [styles.sentMessage, { backgroundColor: sentMessageBackgroundColor }]
+                  : [styles.receivedMessage, { backgroundColor: messageBackgroundColor }],
               ]}
             >
-              <Text style={styles.messageText}>{item.text}</Text>
+              <Text style={[styles.messageText, { color: item.senderEmail === currentUser?.email ? '#fff' : textColor }]}>
+                {item.text}
+              </Text>
             </View>
           )}
           inverted
         />
 
-        <View style={{flexDirection: 'row', padding: 10, backgroundColor: 'white', borderTopWidth: 1, borderTopColor: '#ddd', zIndex: 1}}>
+        <View style={[styles.inputContainer, { 
+          backgroundColor: headerBackgroundColor,
+          borderTopColor: borderColor
+        }]}>
           <TextInput
-            style={{flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 8, marginRight: 10, maxHeight: 100}}
+            style={[styles.input, {
+              backgroundColor: inputBackgroundColor,
+              borderColor: inputBorderColor,
+              color: textColor
+            }]}
             placeholder="Type a message..."
+            placeholderTextColor={secondaryTextColor}
             value={newMessage}
             onChangeText={setNewMessage}
             multiline
             editable={true}
             pointerEvents="auto"
           />
-          <TouchableOpacity style={{backgroundColor: '#50cebb', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center'}} onPress={handleSendMessage}>
-            <Text style={{color: 'white', fontWeight: 'bold'}}>Send</Text>
+          <TouchableOpacity 
+            style={[styles.sendButton, { backgroundColor: buttonBackgroundColor }]} 
+            onPress={handleSendMessage}
+          >
+            <Text style={styles.sendButtonText}>Send</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -611,8 +645,14 @@ const callOpenAIDoctor = async (userMessage: string): Promise<string> => {
       { headers: { 'Content-Type': 'application/json' } }
     );
     return response.data.reply;
-  } catch (error) {
-    console.error('Proxy API error:', error.response ? error.response.data : error.message || error);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error('Proxy API error:', error.message);
+    } else if (axios.isAxiosError(error) && error.response) {
+      console.error('Proxy API error:', error.response.data);
+    } else {
+      console.error('Proxy API error:', error);
+    }
     return 'Sorry, the doctor is currently unavailable.';
   }
 };

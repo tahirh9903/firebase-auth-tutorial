@@ -11,24 +11,67 @@ import { getFirestore, doc, setDoc, getDoc } from '@firebase/firestore'; // Impo
 import { app } from './firebaseConfig';
 import AppNavigator from './tabs/AppNavigator';
 import AuthScreen from './AuthScreen';
-import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, SafeAreaView, Animated } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export default function IntroScreen() {
   const router = useRouter();
+  const [logoSize] = useState(new Animated.Value(1));
+  const [buttonOpacity] = useState(new Animated.Value(0));
+  const [buttonTranslateY] = useState(new Animated.Value(50));
+
+  useEffect(() => {
+    // Start the animation sequence
+    Animated.sequence([
+      // Add a 2 second delay before starting animations
+      Animated.delay(2000),
+      // First, shrink the logo
+      Animated.timing(logoSize, {
+        toValue: 0.7,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      // Then, fade in and slide up the buttons
+      Animated.parallel([
+        Animated.timing(buttonOpacity, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonTranslateY, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.logoContainer}>
-        <Image
-          source={require('../assets/images/logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <Animated.View style={[
+          styles.logoWrapper,
+          {
+            transform: [{ scale: logoSize }]
+          }
+        ]}>
+          <Image
+            source={require('../assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </Animated.View>
         <Text style={styles.tagline}>Your Health, Our Priority</Text>
       </View>
 
-      <View style={styles.buttonContainer}>
+      <Animated.View style={[
+        styles.buttonContainer,
+        {
+          opacity: buttonOpacity,
+          transform: [{ translateY: buttonTranslateY }]
+        }
+      ]}>
         <TouchableOpacity 
           style={[styles.button, styles.signInButton]} 
           onPress={() => router.push('/welcome?mode=signin')}
@@ -42,7 +85,7 @@ export default function IntroScreen() {
         >
           <Text style={[styles.buttonText, styles.signUpText]}>Create Account</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -57,20 +100,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
+    minHeight: 400,
   },
   logoWrapper: {
-    backgroundColor: '#FFFFFF',  // Explicit white background
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  logo: {
     width: 250,
     height: 250,
-    marginBottom: 16,
-    backgroundColor: 'transparent',  // Ensure transparent background
   },
-  appName: {
-    // Remove this style since we're not using it anymore
+  logo: {
+    width: '100%',
+    height: '100%',
+    marginBottom: 16,
   },
   tagline: {
     fontSize: 20,
@@ -92,12 +133,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   signInButton: {
-    backgroundColor: '#002B5B', // MediConnect navy blue
+    backgroundColor: '#002B5B',
   },
   signUpButton: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#002B5B', // MediConnect navy blue
+    borderColor: '#002B5B',
   },
   buttonText: {
     fontSize: 18,
@@ -105,6 +146,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   signUpText: {
-    color: '#002B5B', // MediConnect navy blue
+    color: '#002B5B',
   },
 });

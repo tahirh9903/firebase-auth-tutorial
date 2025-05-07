@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, Platform, Alert, Modal, TextInput } from 'react-native';
 import { User } from '@firebase/auth';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { doc, getDoc, collection, query, where, getDocs, orderBy, limit, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, orderBy, limit, deleteDoc, updateDoc, addDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
-import auth from '@react-native-firebase/auth';
+import { getAuth } from '@firebase/auth';
+import HealthTipsModal from '../components/HealthTipsModal';
+import { useAccessibility } from '../context/AccessibilityContext';
 
 interface Event {
   id: string;
@@ -44,16 +46,59 @@ interface HomeScreenProps {
   user: User | null;
 }
 
+interface UserData {
+  displayName?: string;
+  photoURL?: string;
+  [key: string]: any;
+}
+
+const moods = [
+  { emoji: '😊', label: 'Happy', value: 'happy' },
+  { emoji: '😐', label: 'Neutral', value: 'neutral' },
+  { emoji: '😔', label: 'Sad', value: 'sad' },
+  { emoji: '😴', label: 'Tired', value: 'tired' },
+  { emoji: '😡', label: 'Angry', value: 'angry' },
+  { emoji: '🤒', label: 'Sick', value: 'sick' },
+];
+
+const symptoms = [
+  { emoji: '🤕', label: 'Headache', value: 'headache' },
+  { emoji: '🤢', label: 'Nausea', value: 'nausea' },
+  { emoji: '😫', label: 'Pain', value: 'pain' },
+  { emoji: '😰', label: 'Anxiety', value: 'anxiety' },
+  { emoji: '😪', label: 'Drowsy', value: 'drowsy' },
+  { emoji: '🤧', label: 'Cold', value: 'cold' },
+];
+
 const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
+  const { isDarkMode, textSize } = useAccessibility();
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
   const calendarScrollRef = useRef<ScrollView>(null);
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [imageError, setImageError] = useState(false);
   const [events, setEvents] = useState<EventsByDate>({});
   const [upcomingAppointments, setUpcomingAppointments] = useState<Event[]>([]);
   const [prescriptionRequests, setPrescriptionRequests] = useState<PrescriptionRequest[]>([]);
+  const [showHealthTips, setShowHealthTips] = useState(false);
+  const auth = getAuth();
+
+  // Dynamic colors based on dark mode
+  const textColor = isDarkMode ? '#fff' : '#000';
+  const secondaryTextColor = isDarkMode ? '#ccc' : '#666';
+  const backgroundColor = isDarkMode ? '#1a1a1a' : '#FFFFFF';
+  const cardBackgroundColor = isDarkMode ? '#2a2a2a' : '#F8F8F8';
+  const borderColor = isDarkMode ? '#444444' : '#E9ECEF';
+  const headerBackgroundColor = isDarkMode ? '#2a2a2a' : '#FFFFFF';
+  const calendarBackgroundColor = isDarkMode ? '#2a2a2a' : '#fff';
+  const calendarTextColor = isDarkMode ? '#fff' : '#333';
+  const calendarBorderColor = isDarkMode ? '#444444' : '#f0f0f0';
+  const eventCardBackgroundColor = isDarkMode ? '#2a2a2a' : '#ffffff';
+  const eventCardBorderColor = isDarkMode ? '#444444' : '#f0f0f0';
+  const appointmentCardBackgroundColor = isDarkMode ? '#1a1a1a' : '#F0F5FF';
+  const noEventsBackgroundColor = isDarkMode ? '#2a2a2a' : '#f8f9fa';
+  const noEventsTextColor = isDarkMode ? '#ccc' : '#666';
 
   const fetchEvents = async () => {
     try {
@@ -178,13 +223,27 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
     const fetchUserProfile = async () => {
       if (user) {
         try {
+          // Get the current user's display name directly from auth
+          const currentUser = auth.currentUser;
+          console.log('Current User:', currentUser);
+          console.log('Display Name:', currentUser?.displayName);
+          
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             const data = userDoc.data();
             console.log('HomeScreen - User Data:', data);
             console.log('HomeScreen - Photo URL:', data.photoURL);
-            setUserData(data);
+            // Merge the auth display name with Firestore data
+            setUserData({
+              ...data,
+              displayName: currentUser?.displayName || data.displayName || 'User'
+            });
             setImageError(false);
+          } else {
+            // If no Firestore doc exists, still set the display name from auth
+            setUserData({
+              displayName: currentUser?.displayName || 'User'
+            });
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
@@ -194,6 +253,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
     };
 
     fetchUserProfile();
+
+    // Add auth state listener to update when user data changes
+    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+      if (currentUser) {
+        console.log('Auth State Changed - Display Name:', currentUser.displayName);
+        setUserData((prevData: UserData | null) => ({
+          ...prevData,
+          displayName: currentUser.displayName || 'User'
+        }));
+      }
+    });
+
+    return () => unsubscribe();
   }, [user]);
 
   useEffect(() => {
@@ -461,77 +533,50 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView 
-        style={styles.container}
-        contentContainerStyle={{ paddingBottom: 120 }}
-        showsVerticalScrollIndicator={true}
-      >
-        <View style={styles.header}>
-          <View style={styles.userInfo}>
-            <View style={styles.userInfoContainer}>
-              <View style={[styles.profileImageContainer, imageError && styles.defaultProfileImage]}>
-                <Image
-                  source={{ 
-                    uri: userData?.photoURL
-                  }}
-                  style={styles.profileImage}
-                  onError={(e) => {
-                    console.log('HomeScreen - Image loading error:', e.nativeEvent.error);
-                    setImageError(true);
-                  }}
-                  onLoad={() => {
-                    console.log('HomeScreen - Image loaded successfully');
-                    setImageError(false);
-                  }}
-                />
-              </View>
-              <View style={styles.userTextContainer}>
-                <Text style={styles.greeting}>Hi, Welcome Back</Text>
-                <Text style={styles.userName}>{userData?.fullName || 'Guest'}</Text>
-              </View>
-            </View>
-            <View style={styles.headerIcons}>
-              <TouchableOpacity 
-                style={styles.iconButton}
-                onPress={() => navigation.navigate('Profile', {
-                  screen: 'Settings',
-                  params: { initialTab: 'notifications' }
-                })}
-              >
-                <Icon name="notifications-none" size={24} color="#0066FF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.quickActions}>
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => navigation.navigate('Chat')}
-            >
-              <Icon name="medication" size={20} color="#0066FF" />
-              <Text style={styles.actionText}>My Doctors</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => navigation.navigate('Doctors')}
-            >
-              <Icon name="search" size={20} color="#0066FF" />
-              <Text style={styles.actionText}>Search</Text>
-            </TouchableOpacity>
+    <SafeAreaView style={[styles.container, { backgroundColor }]}>
+      <View style={[styles.header, { backgroundColor: headerBackgroundColor, borderBottomColor: borderColor }]}>
+        <View style={styles.headerLeft}>
+          <Image
+            source={
+              user?.photoURL
+                ? { uri: user.photoURL }
+                : require('../../assets/images/default-avatar.png')
+            }
+            style={styles.profileImage}
+            onError={() => setImageError(true)}
+          />
+          <View>
+            <Text style={[styles.greeting, { color: secondaryTextColor }]}>Hello,</Text>
+            <Text style={[styles.userName, { color: textColor }]}>{user?.displayName || 'User'}</Text>
           </View>
         </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={[styles.iconButton, { backgroundColor: isDarkMode ? '#333' : '#F5F5F5' }]}
+            onPress={() => setShowHealthTips(true)}
+          >
+            <Icon name="favorite" size={24} color={isDarkMode ? '#fff' : '#002B5B'} />
+          </TouchableOpacity>
+        </View>
+      </View>
 
-        <View style={styles.calendar}>
-          <View style={styles.monthHeader}>
+      <ScrollView 
+        style={[styles.scrollView, { backgroundColor }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+        indicatorStyle={isDarkMode ? 'white' : 'black'}
+        scrollIndicatorInsets={{ right: 1 }}
+      >
+        <View style={[styles.calendar, { backgroundColor: calendarBackgroundColor }]}>
+          <View style={[styles.monthHeader, { borderBottomColor: calendarBorderColor }]}>
             <TouchableOpacity
               onPress={goToPreviousMonth}
-              style={styles.monthNavigationButton}
+              style={[styles.monthNavigationButton, { backgroundColor: isDarkMode ? '#333' : '#f8f9fa' }]}
             >
-              <Icon name="chevron-left" size={24} color="#333" />
+              <Icon name="chevron-left" size={24} color={calendarTextColor} />
             </TouchableOpacity>
             <View style={styles.monthTitleContainer}>
-              <Text style={styles.monthTitle}>
+              <Text style={[styles.monthTitle, { color: calendarTextColor }]}>
                 {format(currentMonth, 'MMMM yyyy')}
               </Text>
               <TouchableOpacity
@@ -541,7 +586,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
                   const formattedToday = format(today, 'yyyy-MM-dd');
                   setCurrentMonth(today);
                   setSelectedDate(formattedToday);
-                  // Get today's day number (1-based)
                   const dayIndex = today.getDate() - 1;
                   scrollToToday(dayIndex);
                 }}
@@ -552,9 +596,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
             </View>
             <TouchableOpacity
               onPress={goToNextMonth}
-              style={styles.monthNavigationButton}
+              style={[styles.monthNavigationButton, { backgroundColor: isDarkMode ? '#333' : '#f8f9fa' }]}
             >
-              <Icon name="chevron-right" size={24} color="#333" />
+              <Icon name="chevron-right" size={24} color={calendarTextColor} />
             </TouchableOpacity>
           </View>
           <ScrollView 
@@ -568,6 +612,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
                 key={index}
                 style={[
                   styles.dayItem,
+                  { backgroundColor: isDarkMode ? '#333' : '#f8f9fa' },
                   day.date === selectedDate && styles.selectedDay,
                   day.isToday && day.date === selectedDate && styles.todaySelected,
                   day.isToday && !selectedDate && styles.todayItem,
@@ -577,6 +622,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
                 <View style={styles.dayContent}>
                   <Text style={[
                     styles.dayNumber,
+                    { color: calendarTextColor },
                     day.date === selectedDate && styles.selectedDayText,
                     day.isToday && day.date === selectedDate && styles.todaySelectedText,
                     day.isToday && !selectedDate && styles.todayText,
@@ -585,6 +631,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
                   </Text>
                   <Text style={[
                     styles.dayName,
+                    { color: secondaryTextColor },
                     day.date === selectedDate && styles.selectedDayText,
                     day.isToday && day.date === selectedDate && styles.todaySelectedText,
                     day.isToday && !selectedDate && styles.todayText,
@@ -606,53 +653,56 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
         </View>
 
         <View style={styles.appointments}>
-          <View style={styles.sectionHeader}>
-            <Icon name="event" size={24} color="#333" />
-            <Text style={styles.sectionTitle}>
+          <View style={[styles.sectionHeader, { borderBottomColor: borderColor }]}>
+            <Icon name="event" size={24} color={calendarTextColor} />
+            <Text style={[styles.sectionTitle, { color: textColor }]}>
               Events for {formatDateForDisplay(selectedDate)}
             </Text>
           </View>
           {getEventsForDate(selectedDate).length > 0 ? (
             getEventsForDate(selectedDate).map(renderEvent)
           ) : (
-            <Text style={styles.noEventsText}>No events scheduled for today</Text>
+            <Text style={[styles.noEventsText, { 
+              backgroundColor: noEventsBackgroundColor,
+              color: noEventsTextColor 
+            }]}>No events scheduled for today</Text>
           )}
         </View>
 
-        {/* Prescription Requests Section - Always visible */}
+        {/* Prescription Requests Section */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
+          <View style={[styles.sectionHeader, { borderBottomColor: borderColor }]}>
             <Icon name="medical-services" size={24} color="#0066FF" />
-            <Text style={styles.sectionTitle}>Ongoing Prescription Requests</Text>
+            <Text style={[styles.sectionTitle, { color: textColor }]}>Ongoing Prescription Requests</Text>
           </View>
           <View style={styles.requestsContainer}>
             {prescriptionRequests.length > 0 ? (
               prescriptionRequests.map(renderPrescriptionRequest)
             ) : (
-              <View style={styles.noRequestsContainer}>
-                <Icon name="medication" size={40} color="#666" />
-                <Text style={styles.noRequestsText}>No ongoing prescription requests</Text>
+              <View style={[styles.noRequestsContainer, { backgroundColor: noEventsBackgroundColor }]}>
+                <Icon name="medication" size={40} color={secondaryTextColor} />
+                <Text style={[styles.noRequestsText, { color: noEventsTextColor }]}>No ongoing prescription requests</Text>
               </View>
             )}
           </View>
         </View>
 
         <View style={styles.upcomingAppointments}>
-          <View style={styles.sectionHeader}>
-            <Icon name="calendar-today" size={24} color="#333" />
-            <Text style={styles.sectionTitle}>Appointments for {formatDateForDisplay(selectedDate)}</Text>
+          <View style={[styles.sectionHeader, { borderBottomColor: borderColor }]}>
+            <Icon name="calendar-today" size={24} color={calendarTextColor} />
+            <Text style={[styles.sectionTitle, { color: textColor }]}>Appointments for {formatDateForDisplay(selectedDate)}</Text>
           </View>
           {upcomingAppointments.filter(apt => apt.date === selectedDate).length === 0 ? (
-            <View style={styles.noAppointmentsContainer}>
-              <Icon name="event-busy" size={40} color="#666" />
-              <Text style={styles.noAppointmentsText}>No appointments for this date</Text>
+            <View style={[styles.noAppointmentsContainer, { backgroundColor: noEventsBackgroundColor }]}>
+              <Icon name="event-busy" size={40} color={secondaryTextColor} />
+              <Text style={[styles.noAppointmentsText, { color: noEventsTextColor }]}>No appointments for this date</Text>
             </View>
           ) : (
             upcomingAppointments
               .filter(apt => apt.date === selectedDate)
               .sort((a, b) => (a.timeSlot || '').localeCompare(b.timeSlot || ''))
               .map((appointment) => (
-                <View key={appointment.id} style={styles.appointmentCard}>
+                <View key={appointment.id} style={[styles.appointmentCard, { backgroundColor: appointmentCardBackgroundColor }]}>
                   <View style={styles.appointmentDateStrip}>
                     <Text style={styles.appointmentTime}>
                       {appointment.timeSlot}
@@ -660,7 +710,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
                   </View>
                   <View style={styles.appointmentDetails}>
                     <View style={styles.appointmentHeader}>
-                      <Text style={styles.appointmentTitle}>{appointment.title}</Text>
+                      <Text style={[styles.appointmentTitle, { color: textColor }]}>{appointment.title}</Text>
                       <TouchableOpacity
                         onPress={() => handleDeleteEvent(appointment.id, appointment.title, appointment.category)}
                         style={styles.deleteButton}
@@ -668,10 +718,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
                         <Icon name="delete" size={20} color="#ff6b6b" />
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.appointmentSpecialty}>{appointment.description}</Text>
+                    <Text style={[styles.appointmentSpecialty, { color: '#0066FF' }]}>{appointment.description}</Text>
                     {appointment.timeSlot && (
-                      <Text style={styles.appointmentLocation}>
-                        <Icon name="schedule" size={14} color="#666" /> {appointment.timeSlot}
+                      <Text style={[styles.appointmentLocation, { color: secondaryTextColor }]}>
+                        <Icon name="schedule" size={14} color={secondaryTextColor} /> {appointment.timeSlot}
                       </Text>
                     )}
                   </View>
@@ -680,103 +730,70 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
           )}
         </View>
       </ScrollView>
+
+      <HealthTipsModal 
+        visible={showHealthTips}
+        onClose={() => setShowHealthTips(false)}
+      />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
   container: {
     flex: 1,
   },
-  header: {
-    padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+  scrollView: {
+    flex: 1,
   },
-  userInfo: {
+  scrollContent: {
+    paddingBottom: 120,
+  },
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
   },
-  userInfoContainer: {
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  profileImageContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
   profileImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  defaultProfileImage: {
-    backgroundColor: '#E1E1E1',
-  },
-  userTextContainer: {
-    flexDirection: 'column',
-    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   greeting: {
     fontSize: 14,
-    color: '#666666',
-    marginBottom: 4,
+    color: '#666',
   },
   userName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#000000',
-  },
-  headerIcons: {
-    flexDirection: 'row',
+    color: '#002B5B',
   },
   iconButton: {
-    backgroundColor: '#f0f5ff',
-    padding: 10,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    marginTop: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   actionButton: {
     padding: 8,
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#0066FF',
-    fontWeight: '600',
+    backgroundColor: '#FF9800',
   },
   calendar: {
     marginBottom: 20,

@@ -25,6 +25,7 @@ import { Calendar } from 'react-native-calendars';
 import { format } from 'date-fns';
 import { getAuth } from 'firebase/auth';
 import PrescriptionServices from '../components/PrescriptionServices';
+import { useAccessibility } from '../context/AccessibilityContext';
 
 interface Doctor {
   id: string;
@@ -512,6 +513,7 @@ const styles = StyleSheet.create({
 
 const DoctorsScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<any>>();
+  const { isDarkMode, textSize } = useAccessibility();
   const [searchMode, setSearchMode] = useState<'doctors' | 'pharmacies'>('doctors');
   const [zipCode, setZipCode] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
@@ -533,6 +535,18 @@ const DoctorsScreen = () => {
   const [showPharmacyContactModal, setShowPharmacyContactModal] = useState(false);
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
   const [selectedPharmacy, setSelectedPharmacy] = useState<Pharmacy | null>(null);
+
+  // Dynamic colors based on dark mode
+  const textColor = isDarkMode ? '#fff' : '#000';
+  const secondaryTextColor = isDarkMode ? '#ccc' : '#666';
+  const backgroundColor = isDarkMode ? '#1a1a1a' : '#f5f5f5';
+  const headerBackgroundColor = isDarkMode ? '#2a2a2a' : '#fff';
+  const borderColor = isDarkMode ? '#444444' : '#ddd';
+  const cardBackgroundColor = isDarkMode ? '#2a2a2a' : '#fff';
+  const inputBackgroundColor = isDarkMode ? '#2a2a2a' : '#fff';
+  const inputBorderColor = isDarkMode ? '#444444' : '#ddd';
+  const buttonBackgroundColor = isDarkMode ? '#0066cc' : '#50cebb';
+  const selectedSpecialtyColor = isDarkMode ? '#0066cc' : '#50cebb';
 
   const searchDoctors = async () => {
     if (zipCode.length !== 5) {
@@ -830,7 +844,7 @@ const DoctorsScreen = () => {
 
     return (
       <TouchableOpacity 
-        style={styles.doctorCard}
+        style={[styles.doctorCard, { backgroundColor: cardBackgroundColor }]}
         onPress={() => handleDoctorPress(item)}
       >
         <View style={styles.imageContainer}>
@@ -842,45 +856,45 @@ const DoctorsScreen = () => {
         </View>
         <View style={styles.doctorInfo}>
           <View style={styles.headerContainer}>
-            <Text style={styles.doctorName}>{displayName}</Text>
-            <Text style={styles.doctorSpecialty}>{displaySpecialty}</Text>
+            <Text style={[styles.doctorName, { color: textColor }]}>{displayName}</Text>
+            <Text style={[styles.doctorSpecialty, { color: secondaryTextColor }]}>{displaySpecialty}</Text>
           </View>
           {item.subSpecialty && item.subSpecialty !== 'undefined' && item.subSpecialty !== 'null' && (
-            <Text style={styles.doctorSubSpecialty}>{item.subSpecialty}</Text>
+            <Text style={[styles.doctorSubSpecialty, { color: secondaryTextColor }]}>{item.subSpecialty}</Text>
           )}
           {item.hospital && item.hospital !== 'undefined' && item.hospital !== 'null' && (
-            <Text style={styles.doctorHospital}>
-              <Icon name="business" size={14} color="#7f8c8d" /> {item.hospital}
+            <Text style={[styles.doctorHospital, { color: secondaryTextColor }]}>
+              <Icon name="business" size={14} color={secondaryTextColor} /> {item.hospital}
             </Text>
           )}
-          <Text style={styles.doctorAddress}>
-            <Icon name="location-on" size={14} color="#7f8c8d" /> {displayAddress}
+          <Text style={[styles.doctorAddress, { color: secondaryTextColor }]}>
+            <Icon name="location-on" size={14} color={secondaryTextColor} /> {displayAddress}
           </Text>
           {displayPhone && (
-            <Text style={styles.doctorPhone}>
-              <Icon name="phone" size={14} color="#7f8c8d" /> {displayPhone}
+            <Text style={[styles.doctorPhone, { color: secondaryTextColor }]}>
+              <Icon name="phone" size={14} color={secondaryTextColor} /> {displayPhone}
             </Text>
           )}
-          <Text style={styles.npiNumber}>
-            <Icon name="badge" size={14} color="#95a5a6" /> NPI: {item.npi}
+          <Text style={[styles.npiNumber, { color: secondaryTextColor }]}>
+            <Icon name="badge" size={14} color={secondaryTextColor} /> NPI: {item.npi}
           </Text>
           <View style={styles.buttonContainer}>
             <TouchableOpacity 
-              style={styles.scheduleButton}
+              style={[styles.scheduleButton, { backgroundColor: buttonBackgroundColor }]}
               onPress={() => handleSchedulePress(item)}
             >
               <Icon name="calendar-today" size={16} color="#FFFFFF" />
-              <Text style={styles.scheduleButtonText}> Schedule</Text>
+              <Text style={[styles.scheduleButtonText, { color: textColor }]}> Schedule</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.contactButton}
+              style={[styles.contactButton, { backgroundColor: buttonBackgroundColor }]}
               onPress={() => {
                 setSelectedDoctorForContact(item);
                 setShowContactModal(true);
               }}
             >
               <Icon name="phone" size={16} color="#FFFFFF" />
-              <Text style={styles.scheduleButtonText}> Contact</Text>
+              <Text style={[styles.scheduleButtonText, { color: textColor }]}> Contact</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -890,7 +904,7 @@ const DoctorsScreen = () => {
 
   const renderPharmacyCard = ({ item }: { item: Pharmacy }) => {
     return (
-      <TouchableOpacity style={styles.pharmacyCard}>
+      <TouchableOpacity style={[styles.pharmacyCard, { backgroundColor: cardBackgroundColor }]}>
         <View style={styles.pharmacyImageContainer}>
           <View style={styles.pharmacyInitialsContainer}>
             <Text style={styles.pharmacyInitials}>
@@ -900,43 +914,43 @@ const DoctorsScreen = () => {
         </View>
         <View style={styles.pharmacyInfo}>
           <View style={styles.pharmacyHeaderContainer}>
-            <Text style={styles.pharmacyName}>{item.name}</Text>
-            <Text style={styles.pharmacyType}>{item.type}</Text>
+            <Text style={[styles.pharmacyName, { color: textColor }]}>{item.name}</Text>
+            <Text style={[styles.pharmacyType, { color: secondaryTextColor }]}>{item.type}</Text>
           </View>
           <View style={styles.pharmacyDetailsContainer}>
             <View style={styles.pharmacyInfoRow}>
-              <Icon name="location-on" size={16} color="#666" />
-              <Text style={styles.pharmacyInfoText}>{formatAddress(item.address)}</Text>
+              <Icon name="location-on" size={16} color={secondaryTextColor} />
+              <Text style={[styles.pharmacyInfoText, { color: secondaryTextColor }]}>{formatAddress(item.address)}</Text>
             </View>
             {item.phoneNumber && (
               <View style={styles.pharmacyInfoRow}>
-                <Icon name="phone" size={16} color="#666" />
-                <Text style={styles.pharmacyInfoText}>{formatPhone(item.phoneNumber)}</Text>
+                <Icon name="phone" size={16} color={secondaryTextColor} />
+                <Text style={[styles.pharmacyInfoText, { color: secondaryTextColor }]}>{formatPhone(item.phoneNumber)}</Text>
               </View>
             )}
-            <Text style={styles.pharmacyNpiNumber}>
-              <Icon name="badge" size={14} color="#95a5a6" /> NPI: {item.npi}
+            <Text style={[styles.pharmacyNpiNumber, { color: secondaryTextColor }]}>
+              <Icon name="badge" size={14} color={secondaryTextColor} /> NPI: {item.npi}
             </Text>
             <View style={styles.buttonContainer}>
               <TouchableOpacity 
-                style={[styles.scheduleButton, { backgroundColor: '#4CAF50' }]}
+                style={[styles.scheduleButton, { backgroundColor: buttonBackgroundColor }]}
                 onPress={() => {
                   setSelectedPharmacy(item);
                   setShowPrescriptionModal(true);
                 }}
               >
                 <Icon name="medication" size={16} color="#FFFFFF" />
-                <Text style={styles.scheduleButtonText}> Prescription</Text>
+                <Text style={[styles.scheduleButtonText, { color: textColor }]}> Prescription</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.contactButton}
+                style={[styles.contactButton, { backgroundColor: buttonBackgroundColor }]}
                 onPress={() => {
                   setSelectedPharmacy(item);
                   setShowPharmacyContactModal(true);
                 }}
               >
                 <Icon name="phone" size={16} color="#FFFFFF" />
-                <Text style={styles.scheduleButtonText}> Contact</Text>
+                <Text style={[styles.scheduleButtonText, { color: textColor }]}> Contact</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -966,13 +980,13 @@ const DoctorsScreen = () => {
   }, [bookedSlots]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Healthcare Services</Text>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
+      <View style={[styles.container, { backgroundColor }]}>
+        <View style={[styles.header, { backgroundColor: headerBackgroundColor }]}>
+          <Text style={[styles.headerTitle, { color: textColor }]}>Healthcare Services</Text>
         </View>
 
-        <View style={styles.searchContainer}>
+        <View style={[styles.searchContainer, { backgroundColor: headerBackgroundColor }]}>
           <View style={styles.toggleContainer}>
             <TouchableOpacity 
               style={[
@@ -1003,7 +1017,14 @@ const DoctorsScreen = () => {
           <View style={styles.inputContainer}>
             <Icon name="location-on" size={24} color="#666" />
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: inputBackgroundColor,
+                  borderColor: inputBorderColor,
+                  color: textColor
+                }
+              ]}
               placeholder="Enter ZIP Code"
               value={zipCode}
               onChangeText={setZipCode}
@@ -1042,18 +1063,18 @@ const DoctorsScreen = () => {
         </View>
 
         {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorContainer, { backgroundColor: backgroundColor }]}>
+            <Text style={[styles.errorText, { color: secondaryTextColor }]}>{error}</Text>
           </View>
         )}
 
         {isSearching ? (
-          <View style={styles.loadingContainer}>
+          <View style={[styles.loadingContainer, { backgroundColor: backgroundColor }]}>
             <ActivityIndicator size="large" color="#002B5B" />
           </View>
         ) : error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+          <View style={[styles.errorContainer, { backgroundColor: backgroundColor }]}>
+            <Text style={[styles.errorText, { color: secondaryTextColor }]}>{error}</Text>
           </View>
         ) : (
           <FlatList<SearchResult>
@@ -1062,8 +1083,8 @@ const DoctorsScreen = () => {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContainer}
             ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
+              <View style={[styles.emptyContainer, { backgroundColor: backgroundColor }]}>
+                <Text style={[styles.emptyText, { color: secondaryTextColor }]}>
                   {zipCode.length === 5
                     ? `No ${searchMode === 'doctors' ? 'doctors' : 'pharmacies'} found in this area`
                     : `Enter a ZIP code to find ${searchMode === 'doctors' ? 'doctors' : 'pharmacies'}`}
@@ -1082,41 +1103,41 @@ const DoctorsScreen = () => {
         onRequestClose={() => setShowContactModal(false)}
       >
         <TouchableWithoutFeedback onPress={() => setShowContactModal(false)}>
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, { backgroundColor: backgroundColor }]}>
             <TouchableWithoutFeedback>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Contact Information</Text>
+              <View style={[styles.modalContent, { backgroundColor: backgroundColor }]}>
+                <Text style={[styles.modalTitle, { color: textColor }]}>Contact Information</Text>
                 {selectedDoctorForContact && (
-                  <View style={styles.contactInfo}>
-                    <Text style={styles.doctorName}>{selectedDoctorForContact.name}</Text>
-                    <Text style={styles.doctorSpecialty}>{selectedDoctorForContact.specialty}</Text>
+                  <View style={[styles.contactInfo, { backgroundColor: backgroundColor }]}>
+                    <Text style={[styles.doctorName, { color: textColor }]}>{selectedDoctorForContact.name}</Text>
+                    <Text style={[styles.doctorSpecialty, { color: secondaryTextColor }]}>{selectedDoctorForContact.specialty}</Text>
                     {selectedDoctorForContact.hospital && (
-                      <Text style={styles.doctorHospital}>
-                        <Icon name="business" size={14} color="#7f8c8d" /> {selectedDoctorForContact.hospital}
+                      <Text style={[styles.doctorHospital, { color: secondaryTextColor }]}>
+                        <Icon name="business" size={14} color={secondaryTextColor} /> {selectedDoctorForContact.hospital}
                       </Text>
                     )}
-                    <Text style={styles.doctorAddress}>
-                      <Icon name="place" size={14} color="#7f8c8d" /> {selectedDoctorForContact.address}
+                    <Text style={[styles.doctorAddress, { color: secondaryTextColor }]}>
+                      <Icon name="place" size={14} color={secondaryTextColor} /> {selectedDoctorForContact.address}
                     </Text>
                     {selectedDoctorForContact.phoneNumber && (
                       <TouchableOpacity 
-                        style={styles.phoneButton}
+                        style={[styles.phoneButton, { backgroundColor: buttonBackgroundColor }]}
                         onPress={() => {
                           // You can add phone call functionality here
                           Alert.alert('Contact', `Call ${selectedDoctorForContact.phoneNumber}?`);
                         }}
                       >
                         <Icon name="phone" size={20} color="#FFFFFF" />
-                        <Text style={styles.phoneButtonText}>{selectedDoctorForContact.phoneNumber}</Text>
+                        <Text style={[styles.phoneButtonText, { color: textColor }]}>{selectedDoctorForContact.phoneNumber}</Text>
                       </TouchableOpacity>
                     )}
                   </View>
                 )}
                 <TouchableOpacity
-                  style={styles.closeButton}
+                  style={[styles.closeButton, { backgroundColor: buttonBackgroundColor }]}
                   onPress={() => setShowContactModal(false)}
                 >
-                  <Text style={styles.closeButtonText}>Close</Text>
+                  <Text style={[styles.closeButtonText, { color: textColor }]}>Close</Text>
                 </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
@@ -1132,17 +1153,17 @@ const DoctorsScreen = () => {
         onRequestClose={() => setShowScheduleModal(false)}
       >
         <TouchableWithoutFeedback onPress={() => setShowScheduleModal(false)}>
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, { backgroundColor: backgroundColor }]}>
             <TouchableWithoutFeedback>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Schedule Appointment</Text>
+              <View style={[styles.modalContent, { backgroundColor: backgroundColor }]}>
+                <Text style={[styles.modalTitle, { color: textColor }]}>Schedule Appointment</Text>
                 {selectedDoctorForContact && (
-                  <View style={styles.doctorInfoContainer}>
-                    <Text style={styles.doctorName}>{selectedDoctorForContact.name}</Text>
-                    <Text style={styles.doctorSpecialty}>{selectedDoctorForContact.specialty}</Text>
+                  <View style={[styles.doctorInfoContainer, { backgroundColor: backgroundColor }]}>
+                    <Text style={[styles.doctorName, { color: textColor }]}>{selectedDoctorForContact.name}</Text>
+                    <Text style={[styles.doctorSpecialty, { color: secondaryTextColor }]}>{selectedDoctorForContact.specialty}</Text>
                     {selectedDoctorForContact.hospital && (
-                      <Text style={styles.doctorHospital}>
-                        <Icon name="business" size={14} color="#7f8c8d" /> {selectedDoctorForContact.hospital}
+                      <Text style={[styles.doctorHospital, { color: secondaryTextColor }]}>
+                        <Icon name="business" size={14} color={secondaryTextColor} /> {selectedDoctorForContact.hospital}
                       </Text>
                     )}
                   </View>
@@ -1165,7 +1186,7 @@ const DoctorsScreen = () => {
 
                 {selectedDate && (
                   <ScrollView style={styles.timeSlotsContainer}>
-                    <Text style={styles.sectionTitle}>Available Times</Text>
+                    <Text style={[styles.sectionTitle, { color: textColor }]}>Available Times</Text>
                     <View style={styles.timeSlotGrid}>
                       {generateTimeSlots().length > 0 ? (
                         generateTimeSlots().map((slot, index) => (
@@ -1179,14 +1200,15 @@ const DoctorsScreen = () => {
                           >
                             <Text style={[
                               styles.timeSlotText,
-                              selectedTimeSlot === slot && styles.selectedTimeSlotText
+                              selectedTimeSlot === slot && styles.selectedTimeSlotText,
+                              { color: textColor }
                             ]}>
                               {slot}
                             </Text>
                           </TouchableOpacity>
                         ))
                       ) : (
-                        <Text style={styles.noSlotsText}>No available time slots for this date</Text>
+                        <Text style={[styles.noSlotsText, { color: secondaryTextColor }]}>No available time slots for this date</Text>
                       )}
                     </View>
                   </ScrollView>
@@ -1197,13 +1219,13 @@ const DoctorsScreen = () => {
                     style={[styles.modalButton, styles.confirmButton]}
                     onPress={handleScheduleAppointment}
                   >
-                    <Text style={styles.modalButtonText}>Confirm Appointment</Text>
+                    <Text style={[styles.modalButtonText, { color: textColor }]}>Confirm Appointment</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.cancelButton]}
                     onPress={() => setShowScheduleModal(false)}
                   >
-                    <Text style={styles.modalButtonText}>Cancel</Text>
+                    <Text style={[styles.modalButtonText, { color: textColor }]}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1220,35 +1242,35 @@ const DoctorsScreen = () => {
         onRequestClose={() => setShowPharmacyContactModal(false)}
       >
         <TouchableWithoutFeedback onPress={() => setShowPharmacyContactModal(false)}>
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, { backgroundColor: backgroundColor }]}>
             <TouchableWithoutFeedback>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Pharmacy Information</Text>
+              <View style={[styles.modalContent, { backgroundColor: backgroundColor }]}>
+                <Text style={[styles.modalTitle, { color: textColor }]}>Pharmacy Information</Text>
                 {selectedPharmacy && (
-                  <View style={styles.contactInfo}>
-                    <Text style={styles.pharmacyName}>{selectedPharmacy.name}</Text>
-                    <Text style={[styles.pharmacyType, { marginBottom: 8 }]}>{selectedPharmacy.type}</Text>
-                    <Text style={styles.pharmacyInfoText}>
-                      <Icon name="place" size={14} color="#7f8c8d" /> {selectedPharmacy.address}
+                  <View style={[styles.contactInfo, { backgroundColor: backgroundColor }]}>
+                    <Text style={[styles.pharmacyName, { color: textColor }]}>{selectedPharmacy.name}</Text>
+                    <Text style={[styles.pharmacyType, { color: secondaryTextColor, marginBottom: 8 }]}>{selectedPharmacy.type}</Text>
+                    <Text style={[styles.pharmacyInfoText, { color: secondaryTextColor }]}>
+                      <Icon name="place" size={14} color={secondaryTextColor} /> {selectedPharmacy.address}
                     </Text>
                     {selectedPharmacy.phoneNumber && (
                       <TouchableOpacity 
-                        style={styles.phoneButton}
+                        style={[styles.phoneButton, { backgroundColor: buttonBackgroundColor }]}
                         onPress={() => {
                           Alert.alert('Contact', `Call ${selectedPharmacy.phoneNumber}?`);
                         }}
                       >
                         <Icon name="phone" size={20} color="#FFFFFF" />
-                        <Text style={styles.phoneButtonText}>{selectedPharmacy.phoneNumber}</Text>
+                        <Text style={[styles.phoneButtonText, { color: textColor }]}>{selectedPharmacy.phoneNumber}</Text>
                       </TouchableOpacity>
                     )}
                   </View>
                 )}
                 <TouchableOpacity
-                  style={styles.closeButton}
+                  style={[styles.closeButton, { backgroundColor: buttonBackgroundColor }]}
                   onPress={() => setShowPharmacyContactModal(false)}
                 >
-                  <Text style={styles.closeButtonText}>Close</Text>
+                  <Text style={[styles.closeButtonText, { color: textColor }]}>Close</Text>
                 </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
