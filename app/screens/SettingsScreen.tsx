@@ -46,24 +46,32 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
         setNotificationsEnabled(parsed.enabled);
         setEmailNotifications(parsed.email);
         setAppointmentReminders(parsed.appointments);
+        if (parsed.pushFrequency) setPushFrequency(parsed.pushFrequency);
       }
     } catch (error) {
       console.error('Error loading notification settings:', error);
     }
   };
 
-  const saveNotificationSettings = async () => {
+  const saveNotificationSettings = async (newSettings = {}) => {
     try {
       const settings = {
         enabled: notificationsEnabled,
         email: emailNotifications,
         appointments: appointmentReminders,
+        pushFrequency,
+        ...newSettings,
       };
       await AsyncStorage.setItem('notificationSettings', JSON.stringify(settings));
     } catch (error) {
       console.error('Error saving notification settings:', error);
     }
   };
+
+  // When pushFrequency changes, save it
+  useEffect(() => {
+    saveNotificationSettings({ pushFrequency });
+  }, [pushFrequency]);
 
   const checkBiometricSettings = async () => {
     try {
@@ -218,10 +226,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
               value={notificationsEnabled}
               onValueChange={(value) => {
                 setNotificationsEnabled(value);
-                saveNotificationSettings();
+                saveNotificationSettings({ enabled: value });
               }}
               trackColor={{ false: '#767577', true: '#81b0ff' }}
               thumbColor={notificationsEnabled ? '#f5dd4b' : '#f4f3f4'}
+              style={styles.notificationSwitch}
             />
           </View>
 
@@ -438,6 +447,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderRadius: 12,
+    minHeight: 64,
+  },
+  notificationSwitch: {
+    alignSelf: 'center',
+    marginLeft: 24,
   },
   settingInfo: {
     flex: 1,

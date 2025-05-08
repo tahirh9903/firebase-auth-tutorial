@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   doctorCard: {
     backgroundColor: '#ffffff',
@@ -671,19 +671,8 @@ const DoctorsScreen = () => {
   }, [zipCode, selectedSpecialty, searchMode]);
 
   const handleDoctorPress = (doctor: Doctor) => {
-    navigation.navigate('Calendar', {
-      screen: 'Calendar',
-      params: {
-        selectedDoctor: {
-          id: doctor.id,
-          name: doctor.name,
-          specialty: doctor.specialty,
-          subSpecialty: doctor.subSpecialty,
-          hospital: doctor.hospital,
-          npi: doctor.npi
-        }
-      }
-    });
+    setSelectedDoctorForContact(doctor);
+    setShowScheduleModal(true);
   };
 
   const handleDateSelect = (day: any) => {
@@ -1082,6 +1071,8 @@ const DoctorsScreen = () => {
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={true}
+            bounces={true}
             ListEmptyComponent={
               <View style={[styles.emptyContainer, { backgroundColor: backgroundColor }]}>
                 <Text style={[styles.emptyText, { color: secondaryTextColor }]}>

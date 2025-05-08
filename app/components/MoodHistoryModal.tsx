@@ -35,6 +35,8 @@ const moods = [
   { emoji: '😴', label: 'Tired', value: 'tired' },
   { emoji: '😡', label: 'Angry', value: 'angry' },
   { emoji: '🤒', label: 'Sick', value: 'sick' },
+  { emoji: '❤️', label: 'Loved', value: 'loved' },
+  { emoji: '🤕', label: 'In Pain', value: 'in pain' },
 ];
 
 const symptoms = [
@@ -44,7 +46,32 @@ const symptoms = [
   { emoji: '😰', label: 'Anxiety', value: 'anxiety' },
   { emoji: '😪', label: 'Drowsy', value: 'drowsy' },
   { emoji: '🤧', label: 'Cold', value: 'cold' },
+  { emoji: '😬', label: 'Jaw Pain', value: 'jaw pain' },
+  { emoji: '🩹', label: 'Rash', value: 'rash' },
+  { emoji: '😕', label: 'Confusion', value: 'confusion' },
 ];
+
+const extraMoodEmojiMap: { [key: string]: string } = {
+  excited: '😃',
+  grateful: '🙏',
+  relaxed: '😌',
+  stressed: '😣',
+  bored: '🥱',
+  anxious: '😰',
+  proud: '😎',
+  embarrassed: '😳',
+  surprised: '😮',
+  hopeful: '🤞',
+  // Add more as needed
+};
+
+const extraSymptomEmojiMap: { [key: string]: string } = {
+  cough: '🤧',
+  fever: '🌡️',
+  dizzy: '😵',
+  sore: '🤒',
+  // Add more as needed
+};
 
 const formatDateForDisplay = (dateString: string) => {
   try {
@@ -94,13 +121,27 @@ const MoodHistoryModal: React.FC<MoodHistoryModalProps> = ({
   const renderMoodLog = (log: MoodLog) => {
     const mood = moods.find(m => m.value === log.mood);
     const formattedDate = formatDateForDisplay(log.createdAt);
+    const moodLabel = mood?.label || (log.mood ? log.mood.charAt(0).toUpperCase() + log.mood.slice(1) : 'Unknown');
+    // Mood emoji logic
+    let moodEmoji = mood?.emoji;
+    if (!moodEmoji) {
+      // Try to extract emoji from mood value
+      const emojiMatch = log.mood && log.mood.match(/[\p{Emoji_Presentation}\p{Emoji}\u200d]+/gu);
+      if (emojiMatch) {
+        moodEmoji = emojiMatch[0];
+      } else if (log.mood && extraMoodEmojiMap[log.mood.toLowerCase()]) {
+        moodEmoji = extraMoodEmojiMap[log.mood.toLowerCase()];
+      } else {
+        moodEmoji = '';
+      }
+    }
     
     return (
       <View key={log.id} style={styles.moodLogCard}>
         <View style={styles.moodLogHeader}>
           <View style={styles.moodLogTitleContainer}>
-            <Text style={styles.moodLogEmoji}>{mood?.emoji || '😐'}</Text>
-            <Text style={styles.moodLogTitle}>{mood?.label || 'Unknown'}</Text>
+            <Text style={styles.moodLogEmoji}>{moodEmoji}</Text>
+            <Text style={styles.moodLogTitle}>{moodLabel}</Text>
           </View>
           <View style={styles.moodLogActions}>
             <TouchableOpacity
@@ -121,11 +162,25 @@ const MoodHistoryModal: React.FC<MoodHistoryModalProps> = ({
         {log.symptoms.length > 0 && (
           <View style={styles.symptomsList}>
             {log.symptoms.map((symptom, index) => {
-              const symptomData = symptoms.find(s => s.value === symptom);
+              // Normalize for matching: lowercase and replace underscores with spaces
+              const normalizedSymptom = symptom.toLowerCase().replace(/_/g, ' ');
+              const symptomData = symptoms.find(s => s.value.toLowerCase() === normalizedSymptom);
+              // Symptom emoji logic
+              let symptomEmoji = symptomData?.emoji;
+              if (!symptomEmoji) {
+                const emojiMatch = symptom && symptom.match(/[\p{Emoji_Presentation}\p{Emoji}\u200d]+/gu);
+                if (emojiMatch) {
+                  symptomEmoji = emojiMatch[0];
+                } else if (extraSymptomEmojiMap[normalizedSymptom]) {
+                  symptomEmoji = extraSymptomEmojiMap[normalizedSymptom];
+                } else {
+                  symptomEmoji = '';
+                }
+              }
               return (
                 <View key={index} style={styles.symptomTag}>
-                  <Text style={styles.symptomEmoji}>{symptomData?.emoji}</Text>
-                  <Text style={styles.symptomText}>{symptomData?.label}</Text>
+                  <Text style={styles.symptomEmoji}>{symptomEmoji}</Text>
+                  <Text style={styles.symptomText}>{symptomData?.label || normalizedSymptom.charAt(0).toUpperCase() + normalizedSymptom.slice(1)}</Text>
                 </View>
               );
             })}
