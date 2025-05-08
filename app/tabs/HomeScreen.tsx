@@ -108,7 +108,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
       const q = query(
         eventsRef, 
         where('userId', '==', user.uid),
-        where('category', 'in', ['events', 'upcoming_appointments'])
+        where('category', '==', 'events') // Only fetch regular calendar events
       );
       
       const querySnapshot = await getDocs(q);
@@ -299,16 +299,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
       const date = new Date(firstDayOfMonth);
       date.setDate(firstDayOfMonth.getDate() + i);
       const formattedDate = format(date, 'yyyy-MM-dd');
-      const hasEvents = events[formattedDate]?.some(event => 
-        event.category === 'events' || 
-        (event.taskType === 'appointment' && !event.doctorId)
-      );
+      const hasEvents = events[formattedDate]?.some(event => event.category === 'events');
+      const hasAppointments = upcomingAppointments.some(apt => apt.date === formattedDate);
       const isToday = formattedDate === today;
       days.push({
         date: formattedDate,
         dayName: format(date, 'EEE').toUpperCase(),
         dayNumber: date.getDate(),
-        hasEvents: hasEvents,
+        hasEvents: hasEvents || hasAppointments,
         isToday: isToday,
       });
     }
@@ -702,23 +700,43 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ user }) => {
               .map((appointment) => (
                 <View key={appointment.id} style={[styles.appointmentCard, { backgroundColor: appointmentCardBackgroundColor }]}>
                   <View style={styles.appointmentDateStrip}>
-                    <Text style={styles.appointmentTime}>
+                    <Text
+                      style={styles.appointmentTime}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                    >
                       {appointment.timeSlot}
                     </Text>
                   </View>
                   <View style={styles.appointmentDetails}>
                     <View style={styles.appointmentHeader}>
-                      <Text style={[styles.appointmentTitle, { color: textColor }]}>{appointment.title}</Text>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                          style={[styles.appointmentTitle, { color: textColor }]}
+                          numberOfLines={2}
+                          ellipsizeMode="tail"
+                        >
+                          {appointment.title}
+                        </Text>
+                        <Text
+                          style={[styles.appointmentSpecialty, { color: '#0066FF' }]}
+                          numberOfLines={2}
+                          ellipsizeMode="tail"
+                        >
+                          {appointment.description}
+                        </Text>
+                      </View>
                       <TouchableOpacity
                         onPress={() => handleDeleteEvent(appointment.id, appointment.title, appointment.category)}
-                        style={styles.deleteButton}
+                        style={[styles.deleteButton, { marginLeft: 8, alignSelf: 'flex-start' }]}
                       >
                         <Icon name="delete" size={20} color="#ff6b6b" />
                       </TouchableOpacity>
                     </View>
-                    <Text style={[styles.appointmentSpecialty, { color: '#0066FF' }]}>{appointment.description}</Text>
                     {appointment.timeSlot && (
-                      <Text style={[styles.appointmentLocation, { color: secondaryTextColor }]}>
+                      <Text style={[styles.appointmentLocation, { color: secondaryTextColor }]}> 
                         <Icon name="schedule" size={14} color={secondaryTextColor} /> {appointment.timeSlot}
                       </Text>
                     )}
@@ -1012,9 +1030,13 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
   },
   appointmentTime: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#007AFF',
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0,0,0,0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
     marginBottom: 4,
   },
   eventDetails: {
@@ -1075,11 +1097,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   appointmentDateStrip: {
-    backgroundColor: '#0066FF',
-    padding: 12,
+    backgroundColor: '#0050C8',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
+    minWidth: 70,
+    maxWidth: 100,
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
   },
   appointmentDate: {
     color: '#FFFFFF',
@@ -1090,12 +1116,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#2c3e50',
-    marginBottom: 4,
+    marginBottom: 2,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   appointmentSpecialty: {
     fontSize: 14,
     color: '#0066FF',
-    marginBottom: 4,
+    marginBottom: 2,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   appointmentLocation: {
     fontSize: 14,
@@ -1121,12 +1151,14 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 8,
     borderRadius: 8,
+    alignSelf: 'flex-start',
   },
   appointmentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 4,
+    gap: 8,
   },
   section: {
     marginTop: 20,
